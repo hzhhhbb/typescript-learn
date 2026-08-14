@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 8 课：异步与 Promise</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0008 · 语言核心完结</div>
+  <h1>异步与 Promise</h1>
+  <p class="lesson-summary">好消息：async/await 和 C# 几乎一模一样。坏消息：fetch 的错误行为和你习惯的 HttpClient 不一样，这里藏着全栈开发最经典的坑。学完这课，你就达到了使命的第一个里程碑——<strong>读懂真实全栈代码</strong>。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>心智模型：JS 的异步世界观</h2>
+
+<p>JS 是单线程的，但它不会阻塞等 I/O——而是把 I/O 交给系统，干完再回来通知你。这个"干完通知你"的机制就是事件循环。你的代码分两种：</p>
+
+<ul>
+  <li><strong>同步代码</strong>：从上到下立即执行（就像 C# 的普通方法）</li>
+  <li><strong>异步代码</strong>：发起后马上返回一个"占位符"，结果到了再兑现</li>
+</ul>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>Promise&lt;T&gt;</strong>（≈ C# 的 <code>Task&lt;T&gt;</code>）：异步操作的容器，表示"未来会得到一个 T"。状态机：<em>pending</em>（进行中）→ <em>fulfilled</em>（成功，有值）或 <em>rejected</em>（失败，有原因）。await 就是"等它兑现"。
+</div>
+
+<h2>Promise 基础（≈ Task&lt;T&gt;）</h2>
+
+<pre><code><span class="c">// Promise&lt;void&gt;：未来完成、不返回值（≈ Task）</span>
+<span class="k">function</span> delay(ms: <span class="t">number</span>): <span class="t">Promise</span>&lt;<span class="t">void</span>&gt; {
+  <span class="c">// resolve 被调用 → Promise 完成</span>
+  <span class="k">return</span> <span class="k">new</span> <span class="t">Promise</span>((resolve) =&gt; setTimeout(resolve, ms));
+}
+
+<span class="c">// Promise&lt;T&gt;：未来得到一个值（≈ Task&lt;T&gt;）</span>
+<span class="k">async function</span> fetchUser(id: <span class="t">number</span>): <span class="t">Promise</span>&lt;{ id: <span class="t">number</span>; name: <span class="t">string</span> }&gt; {
+  <span class="k">await</span> delay(<span class="n">100</span>);  <span class="c">// 模拟网络延迟</span>
+  <span class="k">return</span> { id, name: <span class="s">`User ${id}`</span> };
+}
+
+<span class="k">const</span> user = <span class="k">await</span> fetchUser(<span class="n">1</span>);  <span class="c">// await 取出值，类型自动推断</span>
+console.log(user.name);  <span class="c">// User 1</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  async/await 与 C# 几乎一致：<code>async function</code> ≈ <code>async Task&lt;T&gt; F()</code>，<code>await</code> ≈ <code>await</code>，调用方拿到的都是"未来的值"类型。你在 C# 里 async/await 的所有直觉，在这里都成立。
+</div>
+
+<div class="note">关键类型规则：<code>async</code> 函数<strong>永远返回 Promise</strong>。<code>async function f(): Promise&lt;number&gt;</code> 里写 <code>return 42</code>，但调用 <code>f()</code> 得到的类型是 <code>Promise&lt;number&gt;</code>（不是 number）——必须 await 才能拿到 42。这和 C# 的 <code>async Task&lt;int&gt;</code> 一样。</div>
+
+<h2>并行：Promise.all（≈ Task.WhenAll）</h2>
+
+<pre><code><span class="k">async function</span> parallel() {
+  <span class="c">// 两个请求同时发出，一起等（不是串行！）</span>
+  <span class="k">const</span> [a, b] = <span class="k">await</span> <span class="t">Promise</span>.all([fetchUser(<span class="n">1</span>), fetchUser(<span class="n">2</span>)]);
+  console.log(a.name, b.name);  <span class="c">// User 1 User 2</span>
+}</code></pre>
+
+<div class="warn">
+  新手常见错误：<code>await fetchUser(1); await fetchUser(2);</code> ——这是<strong>串行</strong>（等完第一个再发第二个）。要并行必须先把 Promise <em>创建出来</em>再 <code>Promise.all</code>。C# 里对应 <code>Task.WhenAll</code>，规则相同。
+</div>
+
+<h2>真实场景：fetch + 最经典的坑</h2>
+
+<div class="code-compare">
+  <div class="side csharp">
+    <div class="lang">C# · HttpClient（你的已知）</div>
+<pre><code><span class="k">var</span> res = <span class="k">await</span> client.GetAsync(url);
+<span class="c">// 4xx/5xx 默认会抛异常！</span>
+res.EnsureSuccessStatusCode();</code></pre>
+  </div>
+  <div class="side typescript">
+    <div class="lang">TypeScript · fetch（新的）</div>
+<pre><code><span class="k">const</span> res = <span class="k">await</span> fetch(url);
+<span class="c">// 4xx/5xx 不抛异常！！</span>
+<span class="k">if</span> (!res.ok) { <span class="k">throw</span> <span class="k">new</span> <span class="t">Error</span>(<span class="s">`HTTP ${res.status}`</span>); }</code></pre>
+  </div>
+</div>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>fetch 的错误模型和 HttpClient 相反</strong>：<code>fetch</code> <em>只在网络故障</em>（断网、DNS 失败）时 reject 抛异常；<strong>HTTP 404/500 是"正常响应"</strong>——Promise 正常 fulfilled，你要自己检查 <code>res.ok</code> / <code>res.status</code>。全栈代码里忘了这个检查 = 静默的 bug。这是 JS 世界头号新手坑。
+</div>
+
+<pre><code><span class="k">async function</span> getTitle(url: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">string</span>&gt; {
+  <span class="k">const</span> res = <span class="k">await</span> fetch(url);
+  <span class="k">if</span> (!res.ok) {
+    <span class="k">throw</span> <span class="k">new</span> <span class="t">Error</span>(<span class="s">`HTTP ${res.status}: ${url}`</span>);
+  }
+  <span class="k">return</span> (<span class="k">await</span> res.json()).title;  <span class="c">// res.json() 也是 Promise！</span>
+}
+
+<span class="k">try</span> {
+  <span class="k">const</span> title = <span class="k">await</span> getTitle(<span class="s">"https://jsonplaceholder.typicode.com/todos/1"</span>);
+  console.log(<span class="s">"todo title:"</span>, title);
+} <span class="k">catch</span> (err) {
+  console.log(<span class="s">"请求失败:"</span>, err <span class="k">instanceof</span> <span class="t">Error</span> ? err.message : err);
+}</code></pre>
+
+<div class="note">错误处理：<code>await</code> 的异常用 <code>try/catch</code> 捕获（和 C# 一样）。注意 <code>instanceof Error</code> 判断——JS 的 throw 可以抛任何东西，字符串也行，所以先判断再取 message。</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/async.ts</code> 里写好了全部示例（已验证，含真实网络请求）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/async.js</code>，看输出（<code>User 1</code>、<code>User 1 User 2</code>、真实的 todo title）。需要联网。</li>
+    <li><strong>挑战 1</strong>：把 <code>fetchUser</code> 里的 <code>await delay(100)</code> 删掉直接 return——观察并行示例是否变成"几乎同时完成"（在 main 和 parallel 里各加一行 console.log 时间戳对比）。</li>
+    <li><strong>挑战 2</strong>：把 <code>getTitle</code> 的 URL 改成 <code>https://jsonplaceholder.typicode.com/todos/999999</code>（不存在的资源）——看它返回 404 走 <code>!res.ok</code> 分支；再改成 <code>https://不存在的域名.example</code>——看网络错误走 catch。两个错误路径都亲手触发一次。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="async function f(): Promise&lt;number&gt; 调用 f() 的返回类型是？">
+  <h3>Q1 · async 返回类型</h3>
+  <ul class="options">
+    <li data-correct="true">Promise&lt;number&gt;</li>
+    <li>number</li>
+    <li>void</li>
+    <li>undefined</li>
+  </ul>
+  <div class="explain">async 函数永远返回 Promise。函数体里 <code>return 42</code> 只是"把这个值放进 Promise"，调用方必须 await 才能拿到 42。与 C# 的 <code>async Task&lt;int&gt;</code> 相同。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="await 的作用是？">
+  <h3>Q2 · await</h3>
+  <ul class="options">
+    <li data-correct="true">等待 Promise 完成并取出值</li>
+    <li>暂停整个程序执行</li>
+    <li>把异步代码变同步</li>
+    <li>自动捕获异常</li>
+  </ul>
+  <div class="explain">await 挂起<em>当前函数</em>（不是整个程序）直到 Promise 兑现，然后取出值。它不捕获异常（异常要 try/catch），也不"变同步"——事件循环还在跑别的。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Promise.all([p1, p2]) 对应 C# 的？">
+  <h3>Q3 · 并行</h3>
+  <ul class="options">
+    <li data-correct="true">Task.WhenAll</li>
+    <li>Task.Run</li>
+    <li>Task.Delay</li>
+    <li>async void</li>
+  </ul>
+  <div class="explain"><code>Promise.all</code> 并行等待全部完成（任一失败则整体失败）= <code>Task.WhenAll</code>。注意要先把 Promise 创建出来再 all，避免串行。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="fetch 请求返回 HTTP 404 时会怎样？">
+  <h3>Q4 · fetch 的错误模型</h3>
+  <ul class="options">
+    <li data-correct="true">不抛异常，需检查 res.ok</li>
+    <li>自动抛出异常</li>
+    <li>返回 undefined</li>
+    <li>编译时报错</li>
+  </ul>
+  <div class="explain">fetch 只在网络故障时抛异常；HTTP 404/500 是"正常响应"。必须检查 <code>res.ok</code>，否则错误会被静默吞掉。这与 C# HttpClient 默认抛异常的行为相反——最经典的迁移坑。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises">MDN: Using Promises</a> — Promise 机制的权威讲解（含错误处理）。</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/fetch">MDN: fetch()</a> — fetch API 细节，重点看"HTTP 错误码不 reject"的说明。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#type-annotations">TS 官方文档</a> — Promise&lt;T&gt; 的类型用法。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 新增 Promise、async/await、fetch、Promise.all 词条。</li>
+</ul>
+
+<h2>里程碑 🎉</h2>
+
+<p>学完这课，语言核心就全部覆盖了。你现在具备：</p>
+
+<ul>
+  <li>读懂类型系统（结构类型、联合/收窄、泛型）</li>
+  <li>处理空值、错误、异步</li>
+  <li>理解类、函数、对象的 TS 写法</li>
+</ul>
+
+<p><strong>恭喜达到使命第一个里程碑：读懂真实全栈代码。</strong>下一课进入工程实践：<strong>模块系统</strong>——import/export、CommonJS vs ESM。这是"自己从零搭项目"的第一步，也是你之前遇到 export {} 疑问的完整解答。</p>
+
+<p class="lesson-nav">
+  <a href="0007-classes-inheritance.html"><span class="lbl">上一课</span>类与继承的 TS 细节</a>
+  <span class="next"><a href="0009-modules.html"><span class="lbl">下一课</span>模块系统</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>fetch 的错误模型是全栈开发第一坑——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0008 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

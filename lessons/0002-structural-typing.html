@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 课：结构类型</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0002 · 类型系统</div>
+  <h1>结构类型：长得像，就是</h1>
+  <p class="lesson-summary">你在 C# 里写的 <code>class Dog : IPet</code>，在 TypeScript 里可以完全不写——只要 Dog 的形状像 Pet，它就是 Pet。这是 TS 与 C#/Java 最根本的类型系统差异，也是新手摔得最狠的地方。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>先看一个会颠覆你直觉的例子</h2>
+
+<p>同样的代码意图，两个世界的规则：</p>
+
+<div class="code-compare">
+  <div class="side csharp">
+    <div class="lang">C# · 名义类型 nominal</div>
+<pre><code><span class="k">interface</span> IPet {
+  <span class="t">string</span> Name { <span class="k">get</span>; }
+  <span class="t">string</span> Speak();
+}
+
+<span class="k">class</span> Dog : IPet { <span class="c">// ← 必须写 : IPet</span>
+  <span class="k">public</span> <span class="t">string</span> Name { <span class="k">get</span>; }
+  <span class="k">public</span> <span class="t">string</span> Speak() { ... }
+}</code></pre>
+  </div>
+  <div class="side typescript">
+    <div class="lang">TypeScript · 结构类型 structural</div>
+<pre><code><span class="k">interface</span> Pet {
+  name: <span class="t">string</span>;
+  speak(): <span class="t">string</span>;
+}
+
+<span class="k">class</span> Dog { <span class="c">// ← 不需要 implements Pet</span>
+  constructor(<span class="k">public</span> name: <span class="t">string</span>) {}
+  speak() { <span class="k">return</span> <span class="s">"Woof!"</span>; }
+}
+
+<span class="k">const</span> pet: <span class="t">Pet</span> = <span class="k">new</span> Dog(<span class="s">"Rex"</span>); <span class="c">// ✓ 编译通过</span></code></pre>
+  </div>
+</div>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>结构类型（structural typing）</strong>：两个类型是否兼容，只看它们的<strong>形状</strong>（成员的名字和类型），不看类型名、不看继承/实现声明。<code>Dog</code> 有 <code>name</code> 和 <code>speak</code>，形状匹配 <code>Pet</code>，所以 <code>Dog</code> 就是 <code>Pet</code>。
+</div>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  C#/Java 的兼容规则叫<strong>名义类型（nominal typing）</strong>：只有显式声明了继承/实现关系，两个类型才兼容。<code>class Dog : IPet</code> 里的 <code>: IPet</code> 不是装饰——它是类型系统承认关系的唯一途径。TS 把这个"唯一途径"删掉了。
+</div>
+
+<h2>为什么 TS 要这么设计？</h2>
+
+<p>因为 JavaScript 生态的惯用风格就是这样：开发者随手写对象字面量传数据，而不是先定义一个类再实例化。看两个真实场景：</p>
+
+<pre><code><span class="c">// 场景 1：函数参数 —— 直接传"匿名对象"</span>
+<span class="k">function</span> greet(pet: <span class="t">Pet</span>) {
+  console.log(pet.speak());
+}
+
+greet({ name: <span class="s">"Tom"</span>, speak: () => <span class="s">"Meow!"</span> }); <span class="c">// ✓ 不需要任何类</span>
+
+<span class="c">// 场景 2：API 响应 —— 数据直接匹配类型</span>
+<span class="k">interface</span> User {
+  id: <span class="t">number</span>;
+  name: <span class="t">string</span>;
+}
+
+<span class="k">const</span> user: <span class="t">User</span> = <span class="k">await</span> fetch(<span class="s">"/api/user"</span>).then(r =&gt; r.json());
+<span class="c">// fetch 返回的是 any，但形状对就能声明为 User —— C# 里你得先写个 DTO 类再手动映射</span></code></pre>
+
+<blockquote>
+  记住这条推论（和第一课呼应）：<strong>结构匹配是编译期行为，运行时没有任何接口存在。</strong><code>pet instanceof Pet</code> 是非法代码——Pet 在编译后就不存在了。你只能 <code>pet instanceof Dog</code> 判断真实对象。
+</blockquote>
+
+<h2>陷阱 1：多余属性检查（excess property check）</h2>
+
+<p>结构类型听上去很宽松，但有一个重要的收紧规则。猜猜下面哪个报错：</p>
+
+<pre><code><span class="c">// A：对象字面量带多余属性 —— 报错</span>
+<span class="k">const</span> petA: <span class="t">Pet</span> = { name: <span class="s">"Rex"</span>, speak: () => <span class="s">"Woof!"</span>, <span class="bad">age: 3</span> }; <span class="c">// ✗ TS2353</span>
+
+<span class="c">// B：先赋给变量，再赋值 —— 不报错</span>
+<span class="k">const</span> rex = { name: <span class="s">"Rex"</span>, speak: () => <span class="s">"Woof!"</span>, age: <span class="n">3</span> };
+<span class="k">const</span> petB: <span class="t">Pet</span> = rex; <span class="c">// ✓ 编译通过，age 被忽略</span></code></pre>
+
+<p>规则：<strong>对象字面量</strong>直接赋值给类型时，TS 会检查"多余属性"——因为你很可能是拼错了属性名（<code>nam</code> 而不是 <code>name</code>）。字面量是"现写现查"；而变量在声明时类型已定型，赋给 <code>Pet</code> 时只看必需成员是否齐全。这就是官方文档说的 <em>excess property checking</em>。</p>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc
+src/_err.ts:5:56 - error TS2353: Object literal may only specify known
+properties, and 'age' does not exist in type 'Pet'.</code></pre>
+
+<div class="warn">
+  这是全栈开发天天会遇到的坑：把 API 返回的整个对象直接塞进"瘦接口"会报 TS2353，先解构或显式挑字段再赋值。
+</div>
+
+<h2>陷阱 2：可选属性（optional property）</h2>
+
+<p>接口成员可以用 <code>?</code> 标记为可省略：</p>
+
+<pre><code><span class="k">interface</span> Config {
+  retries: <span class="t">number</span>;   <span class="c">// 必需</span>
+  debug?: <span class="t">boolean</span>;   <span class="c">// 可选 —— 存在时是 boolean，缺席时视为 undefined</span>
+}
+
+<span class="k">const</span> c1: <span class="t">Config</span> = { retries: <span class="n">3</span> };              <span class="c">// ✓ debug 可省</span>
+<span class="k">const</span> c2: <span class="t">Config</span> = { retries: <span class="n">1</span>, debug: <span class="k">true</span> }; <span class="c">// ✓</span>
+<span class="k">const</span> c3: <span class="t">Config</span> = {};                        <span class="c">// ✗ TS2741 缺 retries</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  可选属性 ≈ C# 的 <code>bool? Debug { get; set; }</code>——但语义更接近"属性可能整个不存在"，而不是"值为 null"。访问缺席的可选属性得到 <code>undefined</code>，不是 <code>null</code>（null/undefined 的区别我们后课讲）。
+</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/structural.ts</code> 里给你写好了全部示例（已编译验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/structural.js</code>，看输出：<code>Rex Woof!</code>、<code>Tom Meow!</code>。</li>
+    <li>取消文件里 <code>pet3</code> 那行的注释，重新编译——亲眼看到 TS2353 报错，再注释回去。</li>
+    <li><strong>挑战</strong>：把 <code>greet</code> 函数的场景也写一遍——先传带多余属性的<em>字面量</em>（预测报错），再传给变量（预测通过）。在注释里写下你的预测，再运行验证。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="class Dog 没有 implements Pet，const pet: Pet = new Dog(); 编译结果？">
+  <h3>Q1 · 结构 vs 名义</h3>
+  <ul class="options">
+    <li data-correct="true">编译通过，形状匹配即可</li>
+    <li>编译失败，必须显式 implements</li>
+    <li>编译失败，类不能赋给接口</li>
+    <li>编译通过，但运行时抛异常</li>
+  </ul>
+  <div class="explain">结构类型只看形状：Dog 有 name 和 speak，就兼容 Pet。<code>implements</code> 在 TS 里是可选的（写了也只是文档化意图 + 编译期校验，不影响兼容性）。C# 的规则在这里不适用。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Pet 需要 name 和 speak。哪一行会编译报错？\nA: const p: Pet = { name, speak, age };\nB: const x = { name, speak, age }; const p: Pet = x;">
+  <h3>Q2 · 多余属性检查</h3>
+  <ul class="options">
+    <li data-correct="true">A 报错，B 通过</li>
+    <li>A 通过，B 报错</li>
+    <li>两行都报错</li>
+    <li>两行都通过</li>
+  </ul>
+  <div class="explain">对象字面量直接赋值会触发多余属性检查（TS2353）；先赋给变量则只检查必需成员是否齐全。这是故意的不对称——字面量里多出的属性几乎总是拼写错误。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Config 需要 retries，debug 可选。const c: Config = {}; 编译结果？">
+  <h3>Q3 · 可选属性</h3>
+  <ul class="options">
+    <li data-correct="true">编译失败，缺少必需 retries</li>
+    <li>编译通过，可选属性可省略</li>
+    <li>编译通过，空对象总是合法</li>
+    <li>编译失败，缺少 debug 属性</li>
+  </ul>
+  <div class="explain">可选属性（<code>debug?</code>）可以省，<em>必需</em>属性（<code>retries</code>）不能省——否则 TS2741。`?` 只豁免标记了它的成员，不会豁免整个对象。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="结构匹配发生在什么时候？">
+  <h3>Q4 · 编译期 vs 运行时</h3>
+  <ul class="options">
+    <li data-correct="true">编译期检查，运行时无接口</li>
+    <li>运行时检查，编译期不查</li>
+    <li>编译期运行时都检查</li>
+    <li>编译期运行时都不检查</li>
+  </ul>
+  <div class="explain">呼应第一课：类型（包括接口）在编译后全部擦除。<code>pet instanceof Pet</code> 连编译都过不了。结构匹配是编译期给程序员的保护，不是运行时的机制。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/type-compatibility.html">Type Compatibility（官方文档）</a> — 结构类型的完整规则，本课内容的主要出处。值得通读。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-oop.html">TypeScript for Java/C# Programmers（官方）</a> — 第 1-2 节讲的正是结构类型。</li>
+  <li><a href="https://www.triplet.fi/type-system-differences-in-typescript-structural-type-system-vs-c-java-nominal-type-system/">结构类型 vs 名义类型深度对比（第三方文章）</a> — 想深入时读。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 新增了 duck typing、excess property check、optional property 三个词条。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>结构类型是 TS 类型系统的地基。下一课讲 C# 里<strong>完全没有</strong>、但全栈开发每天都要用的概念：<strong>联合类型与类型收窄（union types &amp; narrowing）</strong>——为什么 <code>string | number</code> 比任何继承体系都更优雅，以及 TS 怎么在运行时检查中一步步"收窄"类型。</p>
+
+<p class="lesson-nav">
+  <a href="0001-hello-typescript.html"><span class="lbl">上一课</span>让 TypeScript 跑起来</a>
+  <span class="next"><a href="0003-union-types-narrowing.html"><span class="lbl">下一课</span>联合类型与类型收窄</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>结构类型是 C#/Java 开发者最容易卡住的点——任何一步没绕过来，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0002 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

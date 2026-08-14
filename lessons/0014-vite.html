@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 14 课：Vite 构建工具</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0014 · 生态 · 构建层</div>
+  <h1>Vite 构建工具</h1>
+  <p class="lesson-summary">为什么前端代码不能直接扔给浏览器？因为浏览器不认识 TS、不认识 import 的 npm 包、不会从 node_modules 找依赖。Vite 解决这个——开发时当"翻译服务器"，发布时当"打包器"。这课之后，你能看懂任何现代前端项目的启动命令。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>问题：浏览器读不了你的源码</h2>
+
+<p>你的 TS 前端代码有三个浏览器搞不定的地方：</p>
+
+<ol>
+  <li><strong>TS 语法</strong>：浏览器只执行 JS，不认识 <code>: string</code> 和 JSX（第一课的回声）</li>
+  <li><strong>import 包名</strong>：<code>import { add } from "lodash"</code>——浏览器不知道 "lodash" 是 node_modules 里的哪个文件（它只认相对路径 URL）</li>
+  <li><strong>模块组织</strong>：几十个文件、嵌套依赖、CSS、图片——浏览器不会自己拼</li>
+</ol>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>构建工具</strong>（Vite 是其中之一）干两件事：开发时把源码<strong>翻译成浏览器能吃的格式</strong>并实时提供；发布时把所有文件<strong>合并压缩</strong>成可部署的静态产物。
+</div>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>Vite</th></tr>
+  <tr><td>MSBuild 编译 + 发布</td><td>vite build（打包成静态文件）</td></tr>
+  <tr><td><code>dotnet watch run</code></td><td><code>npm run dev</code>（dev server + 热更新）</td></tr>
+  <tr><td>发布产物部署到 IIS/云</td><td>dist/ 部署到 Nginx/静态服务器/CDN</td></tr>
+</table>
+
+<h2>模式一：开发时 —— 翻译服务器</h2>
+
+<p><code>npm run dev</code> 启动一个本地服务器（默认 localhost:5173）：</p>
+
+<div class="code-compare">
+  <div class="side typescript">
+    <div class="lang">浏览器请求 /src/main.ts</div>
+<pre><code><span class="c">// 你在源码里写的是 TS</span>
+<span class="k">import</span> { setupCounter } <span class="k">from</span> <span class="s">"./counter.ts"</span>;
+
+<span class="c">// 浏览器收到的响应是 JS（esbuild 实时转译）</span>
+<span class="k">import</span> { setupCounter } <span class="k">from</span> <span class="s">"/src/counter.ts"</span>;
+document.querySelector(...).innerHTML = `...`;</code></pre>
+  </div>
+  <div class="side csharp">
+    <div class="lang">C# 对照：Razor 视图请求时渲染</div>
+<pre><code><span class="c">// ASP.NET 的 Razor 页面在请求时编译渲染</span>
+<span class="c">// 类似"按需转换"：请求到了才处理</span>
+<span class="c">// 但 Vite 转的是 TS→JS，Razor 渲染的是 HTML</span></code></pre>
+  </div>
+</div>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>按需转换</strong>：Vite 不预先编译所有文件——<em>浏览器请求哪个文件，它才转哪个</em>（启动 80ms 就能用）。转译用 esbuild（极快的 Go 编译器）。
+</div>
+
+<h3>杀手锏：HMR（热更新）</h3>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>HMR（Hot Module Replacement，热更新）</strong>：改代码保存后，浏览器<strong>只更新改动的那部分</strong>——不刷新页面、不丢状态（比如表单里打了一半的字不会被清掉）。C# 的 <code>dotnet watch</code> 是整页刷新，HMR 精细得多。
+</div>
+
+<h2>模式二：发布时 —— 打包器</h2>
+
+<p><code>npm run build</code> 把整个应用打包成 <code>dist/</code> 静态文件。我实测的产物：</p>
+
+<pre class="term"><code><span class="dollar">$</span> npm run build
+<span class="out">vite v8.2.1 building client environment for production...
+✓ 9 modules transformed.
+dist/index.html                  0.45 kB │ gzip: 0.29 kB
+dist/assets/index-Na4_thdC.js    4.49 kB │ gzip: 2.02 kB   ← 你的 TS 全被压进这里
+dist/assets/index-CsUDhMuy.css   4.10 kB │ gzip: 1.46 kB
+✓ built in 305ms</span></code></pre>
+
+<ul>
+  <li>几十个 TS 文件 → 少量 JS/CSS（带内容哈希文件名，浏览器缓存友好）</li>
+  <li>产物是<strong>纯静态文件</strong>——扔给 Nginx/CDN/任何静态服务器就能跑，不需要 Node</li>
+  <li>gzip 体积自动报告（2KB 的 JS，压缩后 2KB 不到）</li>
+</ul>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  和 C# 的发布类似：开发时一堆源文件，发布时一个包。区别：C# 发布要 IIS 运行 .NET；Vite 的产物是浏览器直接吃的静态文件，<strong>不需要任何运行时</strong>。
+</div>
+
+<h2>关键认知：Vite 和 tsc 的分工</h2>
+
+<p>打开 demo-vite 的 package.json，看 build 脚本：</p>
+
+<pre><code><span class="s">"build"</span>: <span class="s">"tsc && vite build"</span>   <span class="c">// 先 tsc，再 vite</span></code></pre>
+
+<div class="warn">
+  <strong>分工明确</strong>：<code>tsc</code> 负责<strong>类型检查</strong>（你的类型安全），<code>vite build</code> 负责<strong>打包</strong>（转译 + 合并 + 压缩）。Vite 自己<strong>不做类型检查</strong>（esbuild 只转译不检查）——所以生产构建前先跑 tsc 把关。两个工具各管各的，这和我们第一课讲的一致：类型是编译期概念。
+</div>
+
+<h2>常用命令速查</h2>
+
+<table class="compare">
+  <tr><th>命令</th><th>作用</th><th>C# 对照</th></tr>
+  <tr><td><code>npm create vite@latest</code></td><td>脚手架：生成新项目（选模板：react/vue/vanilla）</td><td><code>dotnet new</code></td></tr>
+  <tr><td><code>npm run dev</code></td><td>启动开发服务器 + HMR</td><td><code>dotnet watch run</code></td></tr>
+  <tr><td><code>npm run build</code></td><td>类型检查 + 打包到 dist/</td><td><code>dotnet publish</code></td></tr>
+  <tr><td><code>npm run preview</code></td><td>本地预览打包产物（验证 dist/）</td><td>本地跑发布产物</td></tr>
+</table>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我建好了 <code>code/demo-vite/</code>（vanilla-ts 模板，已验证）。做几件事：</p>
+  <ol>
+    <li><code>cd code/demo-vite && npm run dev</code>——启动 dev server，浏览器打开 localhost:5173，看到页面。</li>
+    <li><strong>挑战 1</strong>：打开 <code>src/counter.ts</code>，把按钮文字改一下保存——看页面<strong>不刷新</strong>就更新了（HMR 生效）。</li>
+    <li><strong>挑战 2</strong>：在浏览器 DevTools 的 Network 面板，刷新页面，点开 main.ts 的请求——看到<strong>响应是 JS 不是 TS</strong>（按需转换的证据）。</li>
+    <li><strong>挑战 3</strong>：<code>npm run build</code>，然后 <code>npm run preview</code>——localhost:4173 打开的是 dist/ 产物（发布后的样子）。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="Vite 开发时把 main.ts 转成 JS 的时机是？">
+  <h3>Q1 · 按需转换</h3>
+  <ul class="options">
+    <li data-correct="true">浏览器请求时才转</li>
+    <li>启动时全部转好</li>
+    <li>编译一次永久生效</li>
+    <li>从不转换直接执行</li>
+  </ul>
+  <div class="explain">Vite 按需转换：浏览器请求哪个文件才转哪个（esbuild 转译，启动只要 80ms）。你在 Network 面板能看到响应是 JS 不是 TS。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="HMR（热更新）改代码后的效果是？">
+  <h3>Q2 · HMR</h3>
+  <ul class="options">
+    <li data-correct="true">即时更新且不刷新页面</li>
+    <li>整页重新加载</li>
+    <li>需要手动刷新才生效</li>
+    <li>只重新编译不更新</li>
+  </ul>
+  <div class="explain">HMR 只替换改动的那部分模块——不刷新、不丢状态（表单里打了一半的字还在）。比 dotnet watch 的整页刷新精细。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="npm run build 的产物 dist/ 是什么？">
+  <h3>Q3 · 打包产物</h3>
+  <ul class="options">
+    <li data-correct="true">可直接部署的静态文件</li>
+    <li>TS 源码的副本</li>
+    <li>需要 Node 的中间文件</li>
+    <li>压缩后的源码包</li>
+  </ul>
+  <div class="explain">dist/ 是纯静态文件（HTML + 打包好的 JS/CSS），扔给 Nginx/CDN/静态服务器就能跑，不需要 Node 运行时。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="build 脚本 &quot;tsc &amp;&amp; vite build&quot; 里 tsc 负责什么？">
+  <h3>Q4 · 工具分工</h3>
+  <ul class="options">
+    <li data-correct="true">类型检查</li>
+    <li>文件打包压缩</li>
+    <li>启动开发服务器</li>
+    <li>安装依赖</li>
+  </ul>
+  <div class="explain">tsc 管类型检查（Vite 的 esbuild 只转译不检查），vite build 管打包。类型安全来自 tsc，产物来自 Vite——两件事，两个工具。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://vite.dev/guide/">Vite 官方指南</a> — 概念、命令、配置的权威参考。</li>
+  <li><a href="https://vite.dev/guide/features.html#hot-module-replacement">Vite HMR 文档</a> — 热更新的机制说明。</li>
+  <li><a href="https://esbuild.github.io/">esbuild 官网</a> — Vite 内部用的转译器（Go 写的超快编译器）。</li>
+  <li><a href="../reference/ecosystem-map.html">生态地图</a> — Vite 是四层里的构建层。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>构建层完成。最后一课：<strong>React 全景</strong>——组件、JSX、props、state（useState）、副作用（useEffect）。用"Todo API 的前端"做示例：一个调用你第十课 API 的极简 React 前端。学完你会亲眼看到全栈闭环——前端组件 → fetch → 你的 Todo API → JSON 回来重新渲染。</p>
+
+<p class="lesson-nav">
+  <a href="0013-node-runtime.html"><span class="lbl">上一课</span>Node.js 运行时</a>
+  <span class="next"><a href="0015-react.html"><span class="lbl">下一课</span>React 全景</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>构建工具对 C# 开发者是新世界——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0014 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript 术语表（C#/Java 对照）</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Reference · 术语表</div>
+  <h1>TypeScript 术语表</h1>
+  <p class="lesson-summary">所有课程统一使用的术语定义，每条附 C#/Java 映射。打印出来贴在桌边，或随时回来查。</p>
+</div>
+
+<dl class="glossary-term">
+  <dt><code>TypeScript (TS)</code></dt>
+  <dd>JavaScript 的超集：在 JS 之上添加了静态类型系统，编译时检查类型，输出纯 JavaScript。</dd>
+  <div class="cs-map">C# 映射：≈ C# 之于 CLR，但 TS 的类型 <em>完全</em> 在编译期擦除，运行时无元数据。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>tsc</code></dt>
+  <dd>TypeScript 编译器（TypeScript Compiler）。把 <code>.ts</code> 编译为 <code>.js</code>，同时做类型检查。等价于 <code>javac</code> / <code>dotnet build</code> 的编译角色。</dd>
+  <div class="cs-map">C# 映射：javac / csc —— 但注意 tsc 的产物是 JS 源码，不是字节码。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>tsconfig.json</code></dt>
+  <dd>TypeScript 项目的配置文件，声明编译选项（目标版本、严格模式、模块系统等）。等价于 <code>csproj</code> / <code>pom.xml</code> 的配置角色，但极简。</dd>
+  <div class="cs-map">C# 映射：.csproj + Directory.Build.props。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>type annotation（类型标注）</dt>
+  <dd>显式声明变量/参数/返回值的类型：<code>let x: number</code>。用冒号而不是 Java 的前置式（<code>int x</code>）。</dd>
+  <div class="cs-map">C# 映射：C# 的 <code>int x</code> —— 但 TS 后缀式、且可省略。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>type inference（类型推断）</dt>
+  <dd>编译器根据初始化表达式自动推导类型，无需显式标注。<code>let x = 42</code> 自动推断为 <code>number</code>。与现代 C# 的 <code>var</code> 相同。</dd>
+  <div class="cs-map">C# 映射：<code>var x = 42;</code></div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>type erasure（类型擦除）</dt>
+  <dd>编译后类型信息全部消失，产物是纯 JavaScript。运行时 <em>没有</em> 类型信息，无法用类型做 instanceof 判断（只能用真实的值判断）。</dd>
+  <div class="cs-map">Java 映射：Java 泛型擦除的极端版 —— TS 连类的类型元数据都不保留。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>structural typing（结构类型）</dt>
+  <dd>类型兼容性由"形状"（成员结构）决定，而不是由类型名称/声明关系决定。只要一个对象具有所需成员，它就是该类型的合法值。</dd>
+  <div class="cs-map">C#/Java 映射：与名义类型（nominal typing）相反 —— C# 中必须显式实现接口，TS 中只要结构匹配即可。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>duck typing（鸭子类型）</dt>
+  <dd>"如果它走路像鸭子、叫像鸭子，那它就是鸭子。"JS 的运行时行为：不检查类型，只看对象是否有对应方法。TS 的结构类型是鸭子类型的<em>编译期静态版本</em>——但只检查形状，不检查行为。</dd>
+  <div class="cs-map">C# 无对应（C# 的 <code>dynamic</code> 是最接近的运行时版本）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>excess property check（多余属性检查）</dt>
+  <dd>对象<em>字面量</em>直接赋值给某类型时，TS 会检查它有没有多余属性。带多余属性的字面量报错；但先赋给变量再赋值则<em>不</em>报错（因为变量类型在推断后已"定型"）。这是新手最容易踩的坑之一。</dd>
+  <div class="cs-map">C#/Java 无对应 —— 显式实现下不存在"多余属性"问题。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>optional property（可选属性）</dt>
+  <dd>用 <code>?</code> 标记可省略的成员：<code>debug?: boolean</code>。该属性存在时类型为 boolean，不存在时视为 undefined。类似 C# 的可空属性，但语义是"可能整个缺席"。</dd>
+  <div class="cs-map">C# 映射：<code>bool? Debug { get; set; }</code>（null 对应缺席）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>nominal typing（名义类型）</dt>
+  <dd>C#/Java 的类型兼容模型：两个类型只有存在显式声明的关系（继承/实现）时才兼容。TS 默认不采用此模型。</dd>
+  <div class="cs-map">C#/Java 的默认行为。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>union type（联合类型）</dt>
+  <dd>一个值可以是几种类型之一：<code>string | number</code>。TS 独有（C# 无直接对应，最接近的是 object 或自定义包装）。</dd>
+  <div class="cs-map">C# 无直接对应。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>any</code></dt>
+  <dd>逃逸类型：关闭对该值的类型检查，相当于把 TS 变回 JS。应避免使用（严格模式下通常是隐患信号）。</dd>
+  <div class="cs-map">C# 映射：无 —— 最接近的是 <code>dynamic</code>（且比 dynamic 更宽松）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>unknown</code></dt>
+  <dd>安全的"未知类型"：任何值可赋给它，但使用时必须先收窄（narrowing）到具体类型。比 <code>any</code> 安全得多。</dd>
+  <div class="cs-map">C# 映射：无 —— 最接近的是 <code>object</code> + 模式匹配。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>narrowing（类型收窄）</dt>
+  <dd>通过运行时检查（<code>typeof</code>、<code>instanceof</code>、in 等）把联合类型收窄为具体类型，编译器据此缩小类型范围。类似 C# 的模式匹配 <code>switch</code>。</dd>
+  <div class="cs-map">C# 映射：<code>is</code> 模式匹配 + <code>switch</code> 表达式。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>interface</code></dt>
+  <dd>描述对象形状的类型声明，可被 class 实现或对象字面量直接匹配（结构类型下无需显式 implements）。</dd>
+  <div class="cs-map">C# 映射：interface —— 但 TS 中不需要显式 implements，形状匹配即可。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>type alias（类型别名）</dt>
+  <dd>用 <code>type X = ...</code> 给类型起名字，可组合联合类型、字面量类型等 interface 表达不了的形状。</dd>
+  <div class="cs-map">C# 映射：最接近的是 using 别名 / 类型包装类。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>literal type（字面量类型）</dt>
+  <dd>把具体值当作类型：<code>'success' | 'error'</code>。变量只能取这些字面量值。</dd>
+  <div class="cs-map">C# 映射：enum 的弱化版 —— TS 也有 enum，但字面量联合常被更推荐。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>void</code></dt>
+  <dd>函数无返回值。与 C#/Java 的 void 相同，但 TS 中更灵活：函数返回 undefined 时也被视为 void 兼容。</dd>
+  <div class="cs-map">C#/Java 的 <code>void</code>，语义略有放宽。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>strictNullChecks（严格空检查）</dt>
+  <dd>strict 模式的核心开关之一：开启后 <code>null</code> 和 <code>undefined</code> 不能赋给其他类型（必须用联合显式声明）。TS 官方强烈建议开启。</dd>
+  <div class="cs-map">C# 映射：<code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code>（可空引用类型）。TS 更严格——C# 开启后 string? 才可空，TS 中 string 直接不可空。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>optional chaining（可选链）</dt>
+  <dd><code>?</code> 操作符：<code>user.address?.city</code> —— 当 <code>address</code> 为 null/undefined 时整个表达式返回 undefined，不抛异常。支持调用、属性、索引、可选链：<code>fn?.()</code>、<code>arr?.[0]</code>。</dd>
+  <div class="cs-map">C# 映射：<code>user?.Address?.City</code> —— 语法完全一样！</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>nullish coalescing（空值合并）</dt>
+  <dd><code>??</code> 操作符：<code>a ?? b</code> —— a 为 null/undefined 时返回 b，否则返回 a。注意与 <code>||</code> 的区别：<code>||</code> 把 0、空串、false 也当"假"，<code>??</code> 只认 null/undefined。</dd>
+  <div class="cs-map">C# 映射：<code>??</code> —— 语法和语义完全一样（C# 8+）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>non-null assertion（非空断言）</dt>
+  <dd><code>!</code> 后缀：<code>user.address!.city</code> —— 告诉编译器"这里不会是 null"，跳过空检查。是逃生舱：运行时如果真是 null 会崩。只在确认安全时用。</dd>
+  <div class="cs-map">C# 映射：<code>!</code>（null-forgiving operator）—— 概念完全一样。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>strict</code> 模式</dt>
+  <dd>tsconfig 中的开关集合，开启全部严格检查（包括 null 检查、noImplicitAny 等）。TS 官方建议始终开启，相当于 C# 的 nullable reference types。</dd>
+  <div class="cs-map">C# 映射：<code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> 的全面加强版。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>module（模块）</dt>
+  <dd>TS 的代码组织单位：一个文件一个模块，用 <code>import</code>/<code>export</code> 连接。等价于 C# 的 namespace/程序集组合，但更接近 ES 模块。</dd>
+  <div class="cs-map">C# 映射：namespace + using；Java 映射：package + import。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>npm</dt>
+  <dd>Node.js 的包管理器，TS 生态的 NuGet/Maven。用 <code>npm install</code> 安装依赖。</dd>
+  <div class="cs-map">C# 映射：NuGet；Java 映射：Maven/Gradle。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>generic（泛型）</dt>
+  <dd>在声明时用类型参数 <code>&lt;T&gt;</code> 占位，使用时确定：<code>Box&lt;number&gt;</code>。语法与 C# 相似，但<strong>运行时完全擦除</strong>——编译后 <code>&lt;number&gt;</code> 等参数消失，Box 的实例就是一个普通对象。</dd>
+  <div class="cs-map">C# 映射：<code>List&lt;T&gt;</code> —— 但 C# 泛型保留在运行时（List&lt;int&gt; 与 List&lt;string&gt; 是不同类型），TS 无此区分。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>type constraint（类型约束）</dt>
+  <dd>用 <code>extends</code> 限制泛型参数必须具有某些成员：<code>&lt;T extends { length: number }&gt;</code>。违反约束时编译报错。</dd>
+  <div class="cs-map">C# 映射：<code>where T : IComparable</code> —— 位置和写法不同，语义类似。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>infer</code></dt>
+  <dd>条件类型中的类型提取关键字：<code>T extends (infer U)[] ? U : never</code> —— 从数组类型中"解出"元素类型。C# 完全没有对应物，是 TS 类型编程的标志性工具。</dd>
+  <div class="cs-map">C# 无对应。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>type parameter（类型参数）</dt>
+  <dd>泛型声明中的 <code>T</code>（也可叫 K、V、U 等）。TS 中默认无约束（可以是任何类型），可用 <code>extends</code> 收紧，也可给默认值：<code>&lt;T = string&gt;</code>。</dd>
+  <div class="cs-map">C# 映射：<code>&lt;T&gt;</code> —— 但 C# 的 T 默认是 object 约束，TS 更宽松。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>ts-node</code> / <code>tsx</code></dt>
+  <dd>直接在 Node 中运行 TS 文件的工具（免去先编译的步骤）。等价于"解释执行"，适合脚本和开发环境。</dd>
+  <div class="cs-map">C# 映射：<code>dotnet run</code> / C# Interactive。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>function type（函数类型）</dt>
+  <dd>函数的类型注解：<code>(a: number, b: number) =&gt; number</code> —— 参数列表 + 箭头 + 返回类型。可作为变量类型、参数类型、返回类型。</dd>
+  <div class="cs-map">C# 映射：<code>Func&lt;int, int, int&gt;</code> / 委托类型。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>rest parameter（剩余参数）</dt>
+  <dd><code>...args</code> 收集剩余实参为数组：<code>function sum(...nums: number[])</code>。调用 <code>sum(1, 2, 3)</code> 时 nums = [1,2,3]。</dd>
+  <div class="cs-map">C# 映射：<code>params int[] nums</code>。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>overload signature（重载签名）</dt>
+  <dd>TS 的函数重载：先写多个签名声明（无函数体），最后写一个兼容所有签名的实现。调用时按签名匹配类型。</dd>
+  <div class="cs-map">C# 映射：方法重载 —— C# 写多个同名方法定义，TS 写多个签名 + 一个实现。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>optional parameter（可选参数）</dt>
+  <dd>用 <code>?</code> 标记可省略的参数：<code>greeting?: string</code>。调用时不传则为 undefined。也可用默认值：<code>greeting: string = "Hello"</code>。</dd>
+  <div class="cs-map">C# 映射：可选参数（<code>string greeting = "Hello"</code>）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>readonly</code></dt>
+  <dd>标记属性不可重新赋值：<code>readonly id: number</code>。编译期检查（运行时对象仍可变，除非用 Object.freeze）。</dd>
+  <div class="cs-map">C# 映射：<code>readonly</code> 字段（编译期 + 运行时）。TS 只有编译期。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>parameter property（参数属性）</dt>
+  <dd>constructor 参数带访问修饰符：<code>constructor(public name: string)</code> —— 自动声明字段并赋值，等价于手写 <code>name: string;</code> + <code>this.name = name;</code>。C# 无对应糖。</dd>
+  <div class="cs-map">C# 无对应（需手写字段 + 构造函数赋值）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>#private 字段</dt>
+  <dd>JS 原生的真私有字段：<code>#secret</code>。运行时强制（外界访问直接抛错），编译后保留。区别于 <code>private</code> 关键字（编译期软约束，编译后是普通属性）。</dd>
+  <div class="cs-map">C# 映射：<code>private</code> 字段 —— 但 C# 的 private 是运行时真私有，与 TS 的 <code>#</code> 更接近。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>abstract</code></dt>
+  <dd>抽象类/方法：<code>abstract class Shape</code> + <code>abstract area(): number</code>。抽象类不能实例化，子类必须实现抽象方法。语义与 C# 相同。</dd>
+  <div class="cs-map">C# 映射：<code>abstract class</code> / <code>abstract method</code> —— 相同。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>decorator（装饰器）</dt>
+  <dd><code>@name</code> 语法包裹类/方法/属性，在声明时附加行为。Angular/NestJS 大量使用（@Component、@Injectable）。TS 5+ 支持标准装饰器（需 target ES2022+），早期实验版需 experimentalDecorators。</dd>
+  <div class="cs-map">C# 映射：Attribute —— 但装饰器是函数（可编程），Attribute 是声明式元数据，运行时反射读取。语义不同。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>Promise&lt;T&gt;</code></dt>
+  <dd>异步操作的"容器"：表示一个未来才完成（resolve）或失败（reject）的值。<code>Promise&lt;number&gt;</code> = 未来会得到一个 number。状态：pending → fulfilled / rejected。</dd>
+  <div class="cs-map">C# 映射：<code>Task&lt;T&gt;</code> —— 语义非常接近。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>async/await</dt>
+  <dd>异步语法糖：<code>async function f(): Promise&lt;T&gt;</code> + <code>await promise</code>。await 暂停当前函数直到 Promise 完成并取出值。与 C# 的 async/await 几乎一致。</dd>
+  <div class="cs-map">C# 映射：<code>async Task&lt;T&gt; F()</code> + <code>await task</code> —— 相同。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>fetch</code></dt>
+  <dd>发起 HTTP 请求的内置 API：<code>fetch(url)</code> 返回 <code>Promise&lt;Response&gt;</code>。<strong>只有网络故障才抛异常</strong>——HTTP 404/500 不抛，需要检查 <code>res.ok</code> 或 <code>res.status</code>。这是新手最常踩的坑。</dd>
+  <div class="cs-map">C# 映射：<code>HttpClient.GetAsync</code> —— 但 C# 默认会为 4xx/5xx 抛 HttpRequestException（需 EnsureSuccessStatusCode 语义对比）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>Promise.all</code></dt>
+  <dd>并行等待多个 Promise：<code>await Promise.all([p1, p2])</code> → 返回结果数组（任一失败则整体失败）。</dd>
+  <div class="cs-map">C# 映射：<code>await Task.WhenAll(...)</code>。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>module（模块）</dt>
+  <dd>TS/JS 的代码组织单元：<strong>一个文件一个模块</strong>。有 import/export 语句的文件是模块，有自己的作用域；没有的是"脚本"，声明全局可见。模块之间通过 import/export 连接。</dd>
+  <div class="cs-map">C# 映射：namespace + using 的组合（但粒度是文件级）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>named export / default export（命名导出 / 默认导出）</dt>
+  <dd>两种导出方式：<code>export function add()</code> 是命名导出（导入时按名字取）；<code>export default fn</code> 是默认导出（导入时任意起名，一个模块只能有一个）。</dd>
+  <div class="cs-map">C# 无直接对应（C# 没有"默认导出"概念）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>CommonJS (CJS) / ES Modules (ESM)</dt>
+  <dd>两种模块格式：CJS 用 <code>require()</code>/<code>module.exports</code>（Node 传统）；ESM 用 <code>import</code>/<code>export</code>（标准）。TS 源码都写 ESM 语法，tsconfig 的 <code>module</code> 字段决定编译产物格式。</dd>
+  <div class="cs-map">C# 映射：.dll 程序集引用（概念对应）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>import type</code></dt>
+  <dd>只导入类型（interface、type 别名等）：<code>import type { User } from "./types"</code>。编译后不产生任何运行时导入语句——因为类型已被擦除。</dd>
+  <div class="cs-map">C# 无直接对应（C# 类型和值导入不区分）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt><code>keyof</code></dt>
+  <dd>提取对象类型的键为联合类型：<code>keyof Todo</code> = <code>"id" | "title" | "done"</code>。是类型编程的基础操作符（类似"属性名集合"，但发生在类型层面）。</dd>
+  <div class="cs-map">C# 映射：反射的 GetProperties() 名字列表（但 C# 是运行时，keyof 是编译期）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>mapped type（映射类型）</dt>
+  <dd>遍历键来创建新类型：<code>{ [K in keyof T]?: T[K] }</code>。所有属性变可选/只读等。TS 内置工具类型（Partial、Pick、Record 等）都是它实现的。</dd>
+  <div class="cs-map">C# 无对应（C# 类型不能"遍历生成"）。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>conditional type（条件类型）</dt>
+  <dd>类型层面的 if/else：<code>T extends U ? X : Y</code>。配合 infer 可提取子类型，是 TS"类型编程"的核心。</dd>
+  <div class="cs-map">C# 无对应。</div>
+</dl>
+
+<dl class="glossary-term">
+  <dt>utility type（工具类型）</dt>
+  <dd>TS 内置的类型变换工具：<code>Partial&lt;T&gt;</code>（全可选）、<code>Pick&lt;T, K&gt;</code>（挑键）、<code>Record&lt;K, V&gt;</code>（键值对象）、<code>ReturnType&lt;F&gt;</code>（函数返回类型）等。全栈代码里高频出现。</dd>
+  <div class="cs-map">C# 无直接对应（类型层面没有这类操作）。</div>
+</dl>
+
+</main>
+<footer>
+  <p>TypeScript 术语表 · 随课程持续扩充 · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+</body>
+</html>

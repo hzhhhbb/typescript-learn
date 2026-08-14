@@ -1,0 +1,529 @@
+/* ============================================================
+   TypeScript 课程共享样式表  lesson.css
+   设计原则：Tufte 风格 —— 内容为王，克制的装饰，适合打印
+   所有课程（lessons/*.html）与参考文档（reference/*.html）共用
+   ============================================================ */
+
+:root {
+  --ink: #1a1a1a;            /* 正文 */
+  --ink-soft: #555;          /* 次要文字 */
+  --ink-faint: #888;         /* 弱化文字 */
+  --paper: #fdfdfd;          /* 背景 */
+  --rule: #ddd;              /* 分隔线 */
+  --accent: #3178c6;         /* TypeScript 蓝 */
+  --accent-soft: #e8f0fa;    /* 浅蓝背景 */
+  --csharp: #7a3e9d;         /* 对照色（C#/Java 侧） */
+  --csharp-soft: #f3eef8;
+  --warn: #b3541e;
+  --warn-soft: #fdf1e8;
+  --ok: #2e7d4f;
+  --ok-soft: #e9f5ee;
+  --code-bg: #f4f4f2;
+  --mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 18px; }
+
+body {
+  font-family: var(--serif);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.65;
+  margin: 0;
+  padding: 2rem 1.25rem 5rem;
+}
+
+main, .page {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+/* ---------- 课程头部 ---------- */
+
+.lesson-header { margin-bottom: 2.5rem; }
+
+.lesson-meta {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.2;
+  margin: 0.2rem 0 0.4rem;
+  letter-spacing: -0.01em;
+}
+
+.lesson-summary {
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin: 0.4rem 0 0;
+}
+
+.time-box {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  background: var(--code-bg);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  margin-top: 0.8rem;
+}
+
+/* ---------- 正文排版 ---------- */
+
+h2 {
+  font-size: 1.35rem;
+  margin-top: 2.4rem;
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.01em;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+h3 {
+  font-size: 1.1rem;
+  margin-top: 1.8rem;
+  margin-bottom: 0.4rem;
+}
+
+p { margin: 0.7rem 0; }
+
+strong { font-weight: 700; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(49, 120, 198, 0.35);
+}
+
+a:hover { border-bottom-color: var(--accent); }
+
+ul, ol { padding-left: 1.4rem; }
+li { margin: 0.35rem 0; }
+
+blockquote {
+  margin: 1.2rem 0;
+  padding: 0.6rem 1.2rem;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  font-style: italic;
+  border-radius: 0 6px 6px 0;
+}
+
+blockquote p { margin: 0.3rem 0; }
+
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 2.5rem 0;
+}
+
+/* ---------- 代码 ---------- */
+
+code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0.12em 0.35em;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  line-height: 1.55;
+  font-size: 0.86rem;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 1em;
+}
+
+pre .c { color: var(--ink-faint); font-style: italic; }        /* 注释 */
+pre .k { color: var(--accent); font-weight: 600; }             /* 关键字 */
+pre .s { color: var(--ok); }                                   /* 字符串 */
+pre .n { color: var(--warn); }                                 /* 数字 */
+pre .t { color: var(--csharp); }                               /* 类型名 */
+pre .bad { background: #f9e3e0; border-radius: 3px; }          /* 错误标记 */
+
+/* 终端命令块 */
+pre.term {
+  background: #1e1e28;
+  color: #d6d6e0;
+  border-color: #1e1e28;
+}
+pre.term .dollar { color: #7aa2f7; font-weight: 700; }
+pre.term .out { color: #8d8da3; }
+
+/* ---------- 对照表（C# ↔ TS） ---------- */
+
+table.compare {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2rem 0;
+  font-size: 0.92rem;
+  font-family: var(--sans);
+}
+
+table.compare th, table.compare td {
+  border: 1px solid var(--rule);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.compare th {
+  background: var(--csharp-soft);
+  color: var(--csharp);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+table.compare th:last-child {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+table.compare td code {
+  background: none;
+  padding: 0;
+  white-space: nowrap;
+}
+
+/* ---------- 信息框 ---------- */
+
+.note, .warn, .ok, .new, .known {
+  border-radius: 8px;
+  padding: 0.8rem 1.1rem;
+  margin: 1.2rem 0;
+  font-size: 0.95rem;
+}
+
+.note { background: var(--accent-soft); border-left: 3px solid var(--accent); }
+.warn { background: var(--warn-soft); border-left: 3px solid var(--warn); }
+.ok   { background: var(--ok-soft); border-left: 3px solid var(--ok); }
+
+.new {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
+}
+.new .tag, .known .tag {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: inline-block;
+  border-radius: 4px;
+  padding: 0.1rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.new .tag { background: var(--ok); color: #fff; }
+.known { background: var(--code-bg); border: 1px solid var(--rule); }
+.known .tag { background: #b9b9c6; color: #fff; }
+
+/* ---------- 测验 ---------- */
+
+.quiz {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.2rem 1.4rem;
+  margin: 1.5rem 0;
+  background: #fff;
+}
+
+.quiz h3 {
+  margin-top: 0;
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.quiz .q {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  margin: 0.4rem 0 0;
+  line-height: 1.5;
+  white-space: pre-line;   /* 保留 data-q 里的换行，代码单独成行 */
+}
+
+.quiz .q code {
+  font-size: 0.9em;
+}
+
+.quiz .options { list-style: none; padding: 0; margin: 0.8rem 0 0; }
+.quiz .options li {
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  margin: 0.45rem 0;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.quiz .options li:hover { border-color: var(--accent); }
+
+.quiz .options li.correct {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.quiz .options li.wrong {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.quiz .explain {
+  display: none;
+  font-size: 0.9rem;
+  margin-top: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  background: var(--code-bg);
+  font-family: var(--sans);
+}
+.quiz .explain.show { display: block; }
+.quiz .explain strong { color: var(--accent); }
+
+.quiz .feedback {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  margin-top: 0.6rem;
+  min-height: 1.2em;
+  font-weight: 600;
+}
+.quiz .feedback.right { color: var(--ok); }
+.quiz .feedback.wrong { color: var(--warn); }
+
+/* ---------- 折叠答案 ---------- */
+
+details.answer {
+  border: 1px dashed var(--rule);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+}
+details.answer summary {
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ---------- 练习 ---------- */
+
+.exercise {
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 1.2rem 1.4rem;
+  margin: 1.6rem 0;
+  background: #fff;
+}
+
+.exercise .ex-title {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- 代码对照（C# ↔ TS） ---------- */
+
+.code-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.4rem 0;
+}
+
+.code-compare .side {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--code-bg);
+  min-width: 0;   /* 允许网格项收缩，避免溢出 */
+}
+
+.code-compare .side .lang {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.32rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.code-compare .side.csharp .lang   { background: var(--csharp-soft); color: var(--csharp); }
+.code-compare .side.typescript .lang { background: var(--accent-soft); color: var(--accent); }
+
+.code-compare .side pre {
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0.8rem 1rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  white-space: pre-wrap;      /* 长行自动换行，不横向挤压 */
+  word-break: break-word;
+  background: var(--code-bg);
+}
+
+.code-compare .side pre code { font-size: 1em; }
+
+@media (max-width: 700px) {
+  .code-compare { grid-template-columns: 1fr; }  /* 窄屏改为上下堆叠 */
+}
+
+/* ---------- 逐步推导块 ---------- */
+
+.derive {
+  border: 1px dashed var(--accent);
+  border-radius: 10px;
+  padding: 1.2rem 1.4rem;
+  margin: 1.5rem 0;
+  background: #fff;
+}
+
+.derive .derive-title {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
+.derive ol.steps {
+  margin: 0.4rem 0 0;
+  padding-left: 1.3rem;
+  font-size: 0.95rem;
+}
+
+.derive ol.steps > li {
+  margin: 0.65rem 0;
+}
+
+.derive ol.steps pre {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.8rem;
+}
+
+.derive .result {
+  display: inline-block;
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
+  border-radius: 6px;
+  padding: 0.35rem 0.8rem;
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  margin-top: 0.3rem;
+}
+
+/* ---------- 术语表 ---------- */
+
+.glossary-term {
+  margin: 1.4rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+.glossary-term:last-child { border-bottom: none; }
+
+.glossary-term dt {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.glossary-term dt code {
+  background: none;
+  padding: 0;
+  color: var(--accent);
+}
+.glossary-term dd {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+.glossary-term .cs-map {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--csharp);
+  margin-top: 0.3rem;
+}
+
+/* ---------- 课程间导航 ---------- */
+
+.lesson-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3.5rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: 0.88rem;
+}
+.lesson-nav a { border-bottom: none; }
+.lesson-nav .next { text-align: right; }
+.lesson-nav .lbl {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-faint);
+}
+
+/* ---------- 页脚 ---------- */
+
+footer {
+  margin-top: 3.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+}
+
+/* ---------- 打印 ---------- */
+
+@media print {
+  html { font-size: 11.5pt; }
+  body { padding: 0; background: #fff; }
+  pre, blockquote, .quiz, .exercise, details.answer {
+    break-inside: avoid;
+  }
+  a { color: var(--ink); border-bottom: none; }
+  .lesson-nav, footer { display: none; }
+}
+
+@media (max-width: 560px) {
+  html { font-size: 16px; }
+  body { padding: 1.25rem 1rem 4rem; }
+  table.compare { font-size: 0.8rem; }
+  .lesson-nav { flex-direction: column; }
+  .lesson-nav .next { text-align: left; }
+}

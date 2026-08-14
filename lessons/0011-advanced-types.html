@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 11 课：进阶类型（类型编程）</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0011 · 选学进阶</div>
+  <h1>进阶类型：类型编程</h1>
+  <p class="lesson-summary">React 的 useState、Express 的类型推导、你遇到的每个库的类型定义——背后都是这些技巧。这课是 TS 独有的"类型编程"：keyof、映射类型、条件类型、infer。C# 完全没有对应物，但它们是读懂现代库代码的钥匙。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>为什么学这个？</h2>
+
+<p>你已经在用工具类型了，只是不知道。全栈代码里这些写法无处不在：</p>
+
+<pre><code><span class="c">// 真实代码里的样子（你以前可能看不懂）</span>
+<span class="k">type</span> <span class="t">CreateTodoInput</span> = <span class="t">Omit</span>&lt;<span class="t">Todo</span>, <span class="s">"id"</span> | <span class="s">"done"</span>&gt;;  <span class="c">// 去掉两个键</span>
+<span class="k">type</span> <span class="t">Config</span> = <span class="t">Partial</span>&lt;<span class="t">FullConfig</span>&gt;;                 <span class="c">// 全部变可选</span>
+<span class="k">type</span> <span class="t">Result</span> = <span class="t">ReturnType</span>&lt;<span class="k">typeof</span> fetchUser&gt;;          <span class="c">// 函数返回类型</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  这些不是运行时库——是<strong>类型层面的操作</strong>：对"类型"做变换，产生新"类型"。它们编译后<strong>完全消失</strong>（第一课的擦除在这里体现到极致）。C# 里没有"对类型做运算"的能力（反射是运行时的，做不到编译期推导）。
+</div>
+
+<h2>基础一：keyof + 索引访问</h2>
+
+<pre><code><span class="k">interface</span> <span class="t">Todo</span> { id: <span class="t">number</span>; title: <span class="t">string</span>; done: <span class="t">boolean</span>; }
+
+<span class="k">type</span> <span class="t">TodoKeys</span> = <span class="k">keyof</span> <span class="t">Todo</span>;        <span class="c">// "id" | "title" | "done"（键的联合）</span>
+<span class="k">type</span> <span class="t">Title</span> = <span class="t">Todo</span>[<span class="s">"title"</span>];       <span class="c">// string（索引访问：取属性类型）</span>
+
+<span class="k">const</span> k: <span class="t">TodoKeys</span> = <span class="s">"title"</span>;  <span class="c">// ✓</span>
+k = <span class="s">"other"</span>;                       <span class="bad">// ✗ TS2322</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  keyof ≈ C# 反射里 <code>GetProperties()</code> 的属性名集合——但 keyof 在<strong>编译期</strong>完成且类型安全（C# 反射是运行时字符串）。keyof 联合类型还能配合第三课的收窄用。
+</div>
+
+<div class="derive">
+  <div class="derive-title">逐步推导：keyof 和索引访问</div>
+  <ol class="steps">
+    <li><strong>起点</strong>：<code>interface Todo { id: number; title: string; done: boolean; }</code> 描述"有三个键的对象"。</li>
+    <li><strong>提取键</strong>：<code>keyof Todo</code> = "Todo 的所有键" = <code>"id" | "title" | "done"</code>（字面量联合——第三课）。</li>
+    <li><strong>取属性类型</strong>：<code>Todo["title"]</code> = "title 键对应的类型" = <code>string</code>。把 JS 运行时 <code>todo["title"]</code>（取值）搬到类型层面（取类型）。</li>
+    <li><strong>为什么有用</strong>：K 可以是动态的。<code>function getProp&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K]</code> 里，传 "title" 返回 string、传 "id" 返回 number——返回类型跟着键走（C# 反射做不到编译期检查）。</li>
+  </ol>
+</div>
+
+<h2>基础二：映射类型</h2>
+
+<p><code>{ [K in keyof T]: ... }</code> 遍历每个键、逐个变换——类型层面的 map：</p>
+
+<pre><code><span class="k">type</span> <span class="t">OptionalTodo</span> = { [K <span class="k">in</span> <span class="k">keyof</span> <span class="t">Todo</span>]?: <span class="t">Todo</span>[K] };  <span class="c">// 全部变可选</span>
+<span class="k">type</span> <span class="t">ReadonlyTodo</span> = { <span class="k">readonly</span> [K <span class="k">in</span> <span class="k">keyof</span> <span class="t">Todo</span>]: <span class="t">Todo</span>[K] };  <span class="c">// 全部只读</span></code></pre>
+
+<div class="derive">
+  <div class="derive-title">逐步推导：{ [K in keyof Todo]?: Todo[K] }</div>
+  <ol class="steps">
+    <li><strong>先算 <code>keyof Todo</code></strong> = <code>"id" | "title" | "done"</code>（上一步）。</li>
+    <li><strong>读 <code>[K in ...]</code></strong> = "对联合里的每个值 K，生成一个属性"。</li>
+    <li><strong>依次代入展开</strong>：
+<pre><code>K = "id"    → id:    Todo["id"]    → id:    number
+K = "title" → title: Todo["title"] → title: string
+K = "done"  → done:  Todo["done"]  → done:  boolean</code></pre>
+    </li>
+    <li><strong>加 <code>?:</code> 修饰符</strong>：每个属性变可选。</li>
+  </ol>
+  <span class="result">结果 = { id?: number; title?: string; done?: boolean }</span>
+</div>
+
+<div class="known">
+  <span class="tag">C# 类比</span>
+  <code>todos.Select(t =&gt; new { t.id, t.title })</code>——对集合每个元素做变换得到新集合。映射类型就是<strong>对"键的联合"的每个键做变换，得到新类型</strong>。
+</div>
+
+<h2>内置工具类型：全栈代码高频出现</h2>
+
+<p>TS 内置了常用变换，直接可用（都在 lib 里，零引入）：</p>
+
+<table class="compare">
+  <tr><th>工具类型</th><th>作用</th><th>示例</th></tr>
+  <tr><td><code>Partial&lt;T&gt;</code></td><td>所有属性变可选</td><td>表单编辑：<code>Partial&lt;User&gt;</code> 更新部分字段</td></tr>
+  <tr><td><code>Required&lt;T&gt;</code></td><td>所有属性变必选</td><td>补齐可选配置</td></tr>
+  <tr><td><code>Readonly&lt;T&gt;</code></td><td>所有属性只读</td><td>不可变配置对象</td></tr>
+  <tr><td><code>Pick&lt;T, K&gt;</code></td><td>只保留指定键</td><td><code>Pick&lt;Todo, "id"&gt;</code> 轻量视图</td></tr>
+  <tr><td><code>Omit&lt;T, K&gt;</code></td><td>去掉指定键</td><td><code>Omit&lt;Todo, "id"&gt;</code> 创建输入（第十课的 CreateTodoInput 就是它！）</td></tr>
+  <tr><td><code>Record&lt;K, V&gt;</code></td><td>键值对象类型</td><td><code>Record&lt;Status, string&gt;</code> 按状态存文案</td></tr>
+  <tr><td><code>ReturnType&lt;F&gt;</code></td><td>函数返回类型</td><td>从 API 函数推导响应类型</td></tr>
+  <tr><td><code>Awaited&lt;T&gt;</code></td><td>取 Promise 内部类型</td><td><code>Awaited&lt;Promise&lt;User&gt;&gt;</code> = User</td></tr>
+</table>
+
+<div class="note">
+  对照第十课：<code>CreateTodoInput</code> 我们手写了两个字段——其实一行 <code>Omit&lt;Todo, "id" | "done"&gt;</code> 就能表达"Todo 减去服务器生成的字段"。类型先行 + 工具类型组合，是真实项目的常见风格。
+</div>
+
+<div class="derive">
+  <div class="derive-title">工具类型不神秘：官方实现就是映射类型</div>
+  <pre><code><span class="c">// TypeScript 官方 lib 里的真实定义</span>
+<span class="k">type</span> <span class="t">Partial</span>&lt;<span class="t">T</span>&gt;    = { [P <span class="k">in</span> <span class="k">keyof</span> <span class="t">T</span>]?: <span class="t">T</span>[P] };          <span class="c">// 全部可选</span>
+<span class="k">type</span> <span class="t">Required</span>&lt;<span class="t">T</span>&gt;   = { [P <span class="k">in</span> <span class="k">keyof</span> <span class="t">T</span>]-?: <span class="t">T</span>[P] };         <span class="c">// 全部必选（-? 去掉可选）</span>
+<span class="k">type</span> <span class="t">Readonly</span>&lt;<span class="t">T</span>&gt;   = { <span class="k">readonly</span> [P <span class="k">in</span> <span class="k">keyof</span> <span class="t">T</span>]: <span class="t">T</span>[P] };   <span class="c">// 全部只读</span></code></pre>
+  <ol class="steps">
+    <li><code>Partial&lt;Todo&gt;</code> = 遍历 Todo 的键、每个加 <code>?</code>——和上面的 OptionalTodo 推导一模一样。</li>
+    <li><code>Pick&lt;T, K&gt;</code> / <code>Omit&lt;T, K&gt;</code> = 遍历时只保留 / 排除 K 里的键（K 是"选中的键"联合）。</li>
+    <li>所以你在代码里见到的 <code>Partial&lt;User&gt;</code>、<code>Omit&lt;Todo, "id"&gt;</code>——都是预写好的映射类型，不是魔法。</li>
+  </ol>
+</div>
+
+<h2>条件类型 + infer：类型层面的逻辑</h2>
+
+<pre><code><span class="c">// 条件类型：T extends U ? X : Y（if/else）</span>
+<span class="k">type</span> <span class="t">IsString</span>&lt;<span class="t">T</span>&gt; = <span class="t">T</span> <span class="k">extends</span> <span class="t">string</span> ? <span class="k">true</span> : <span class="k">false</span>;
+<span class="k">type</span> <span class="t">A</span> = <span class="t">IsString</span>&lt;<span class="s">"hi"</span>&gt;;  <span class="c">// true</span>
+<span class="k">type</span> <span class="t">B</span> = <span class="t">IsString</span>&lt;<span class="n">42</span>&gt;;   <span class="c">// false</span>
+
+<span class="c">// infer：从类型里"解出"子类型（C# 完全没有）</span>
+<span class="k">type</span> <span class="t">ElementType</span>&lt;<span class="t">T</span>&gt; = <span class="t">T</span> <span class="k">extends</span> (<span class="k">infer</span> <span class="t">U</span>)[] ? <span class="t">U</span> : <span class="k">never</span>;
+<span class="k">type</span> <span class="t">E1</span> = <span class="t">ElementType</span>&lt;<span class="t">string</span>[]&gt;;  <span class="c">// string（解出数组元素类型）</span>
+<span class="k">type</span> <span class="t">E2</span> = <span class="t">ElementType</span>&lt;<span class="t">number</span>[]&gt;;  <span class="c">// number</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>infer</strong>：在条件类型里"声明一个待推导的类型变量"。TS 看 <code>T extends (infer U)[]</code> 时，会尝试把 T 匹配成"某数组"，成功就把元素类型赋给 U。内置的 <code>ReturnType</code> 就是这么实现的：<code>T extends (...args: any) =&gt; infer R ? R : never</code>。
+</div>
+
+<div class="derive">
+  <div class="derive-title">逐步推导：条件类型和 infer</div>
+  <ol class="steps">
+    <li><strong>条件类型 = 类型层面的三元</strong>：<code>T extends U ? X : Y</code> —— "T 是不是 U 的子类型（T 能赋给 U 吗）？是取 X，否则取 Y"。和 C# 的 <code>cond ? a : b</code> 同一个形状。</li>
+    <li><strong>代入 IsString&lt;"hi"&gt;</strong>：把 T = "hi" 代入 → <code>"hi" extends string ? true : false</code> → "hi" 能赋给 string → <span class="result">true</span></li>
+    <li><strong>代入 IsString&lt;42&gt;</strong>：<code>42 extends string ?</code> → 42 不是 string → <span class="result">false</span></li>
+    <li><strong>infer = var 的反面</strong>：<code>var x = 42</code> 是"写值，编译器猜类型"；<code>infer U</code> 是"写出模式，编译器解出类型变量"。C# 没有后者。</li>
+    <li><strong>推导 ElementType&lt;string[]&gt;</strong>：把 T = string[] 和 <code>(infer U)[]</code> 匹配 → "string[] 是某个 U 的数组？是！U = string" → <span class="result">string</span></li>
+    <li><strong>推导 ElementType&lt;number&gt;</strong>：number 不是数组，匹配失败 → <span class="result">never</span></li>
+  </ol>
+</div>
+
+<h2>实战：从 API 函数推导类型</h2>
+
+<pre><code><span class="k">function</span> fetchUser(id: <span class="t">number</span>): <span class="t">Promise</span>&lt;{ id: <span class="t">number</span>; name: <span class="t">string</span> }&gt; {
+  <span class="k">return</span> Promise.resolve({ id, name: <span class="s">`User ${id}`</span> });
+}
+
+<span class="k">type</span> <span class="t">FetchResult</span> = <span class="t">ReturnType</span>&lt;<span class="k">typeof</span> fetchUser&gt;; <span class="c">// Promise&lt;{...}&gt;</span>
+<span class="k">type</span> <span class="t">User</span> = <span class="t">Awaited</span>&lt;<span class="t">FetchResult</span>&gt;;              <span class="c">// { id: number; name: string }</span>
+
+<span class="c">// 改 fetchUser 的返回类型 → User 自动跟着变（改一处，全链路同步）</span></code></pre>
+
+<div class="note">
+  这是"修改一处、编译器帮你同步所有依赖类型"的极致：API 函数的返回类型一变，所有引用 <code>User</code> 的地方自动更新。C# 里需要手动维护 DTO 类，TS 里类型可以从源头推导。
+</div>
+
+<div class="derive">
+  <div class="derive-title">逐步推导：ReturnType 和 Awaited</div>
+  <ol class="steps">
+    <li><strong>官方定义</strong>：<code>type ReturnType&lt;T&gt; = T extends (...args: any[]) =&gt; infer R ? R : any;</code></li>
+    <li><strong>代入</strong>：<code>fetchUser</code> 的类型 = <code>(id: number) =&gt; Promise&lt;{...}&gt;</code>。它匹配函数形状吗？是。R = 返回类型 = <code>Promise&lt;{ id: number; name: string }&gt;</code>。</li>
+    <li><strong>再取一层</strong>：<code>Awaited&lt;Promise&lt;User&gt;&gt;</code> 从 Promise 里解出内部类型 = <code>User</code>（官方实现也用了 infer：<code>T extends Promise&lt;infer U&gt; ? Awaited&lt;U&gt; : T</code>，递归解包）。</li>
+    <li><strong>链的威力</strong>：改 fetchUser 的返回类型 → <code>User</code> 自动跟着变，所有用 <code>User</code> 的地方同步更新。</li>
+  </ol>
+</div>
+
+<h2>一条链：把四个工具串起来</h2>
+
+<pre><code>keyof（取键） → T[K]（取属性类型） → [K in keyof T]（遍历键变换 = 工具类型）
+                                          ↓
+                              T extends U ? X : Y（类型层面判断）
+                                          ↓
+                              infer（从模式解出类型 = ReturnType）</code></pre>
+
+<p>这四个工具组合起来，就是 TS 里几乎所有"看起来魔法"的类型推导。下次看到一个吓人的类型（比如 <code>ReturnType&lt;typeof useStore&gt;</code>），就沿着这条链拆开看：先找 keyof，再找映射，最后找 infer。</p>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5-8 分钟）</div>
+  <p>示例在 <code>code/src/advanced-types.ts</code>（已验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/advanced-types.js</code>，看输出（<code>true false</code>、<code>hello 42</code>、<code>User 1</code>）。再 <code>wc -c dist/advanced-types.js</code>——见证类型编程零运行时成本（产物只有几百字节）。</li>
+    <li><strong>挑战 1</strong>：取消 <code>k = "other"</code> 的注释，编译看 TS2322（keyof 联合的约束），再注释回去。</li>
+    <li><strong>挑战 2（推荐）</strong>：打开 <code>code/todo-api/src/types.ts</code>，把 <code>CreateTodoInput</code> 改成一行 <code>export type CreateTodoInput = Omit&lt;Todo, "id" | "done"&gt;;</code>——重新 <code>npm run build</code>，整个项目依然编译通过（类型系统自动验证了等价性）。这就是工具类型在真实项目里的用法。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="keyof Todo（id/title/done 三个属性）的结果是？">
+  <h3>Q1 · keyof</h3>
+  <ul class="options">
+    <li data-correct="true">"id" | "title" | "done"</li>
+    <li>number</li>
+    <li>Todo 的构造函数</li>
+    <li>任意字符串</li>
+  </ul>
+  <div class="explain">keyof 提取对象类型的键为字面量联合类型。配合第三课收窄可用于类型安全的对象操作。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Partial&lt;Todo&gt; 的作用是？">
+  <h3>Q2 · 工具类型</h3>
+  <ul class="options">
+    <li data-correct="true">所有属性变可选</li>
+    <li>所有属性变必选</li>
+    <li>删除全部属性</li>
+    <li>所有属性变只读</li>
+  </ul>
+  <div class="explain">Partial 把所有属性标记为可选——常见于"部分更新"场景。Required 是它的反面，Readonly 是只读版本。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="ElementType&lt;T&gt; = T extends (infer U)[] ? U : never，ElementType&lt;string[]&gt; 是？">
+  <h3>Q3 · infer</h3>
+  <ul class="options">
+    <li data-correct="true">string</li>
+    <li>string[]</li>
+    <li>never</li>
+    <li>any</li>
+  </ul>
+  <div class="explain">infer U 从数组类型中解出元素类型。内置 ReturnType 用它提取函数返回类型，Awaited 用它取 Promise 内部类型。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="这些类型工具（keyof/infer/Omit）在运行时？">
+  <h3>Q4 · 类型编程的运行时</h3>
+  <ul class="options">
+    <li data-correct="true">完全不存在，编译后擦除</li>
+    <li>保留在产物中</li>
+    <li>只在开发模式存在</li>
+    <li>由 Node 运行时提供</li>
+  </ul>
+  <div class="explain">类型编程是纯编译期操作（第一课的擦除在这里体现到极致）。实测：1.7KB 的类型源码编译后只剩 544 字节运行时逻辑。C# 里做不到——反射是运行时的。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/objects.html#generic-object-types">TS 官方文档：对象类型（映射类型）</a></li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/conditional-types.html">TS 官方文档：条件类型（含 infer）</a> — infer 的权威讲解。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/utility-types.html">TS 官方文档：Utility Types</a> — 全部内置工具类型清单，建议收藏。</li>
+</ul>
+
+<h2>毕业总结 🎓</h2>
+
+<p>到这里，TypeScript 学习路线全部完成。你带走的：</p>
+
+<ul>
+  <li><strong>心智模型</strong>：类型是编译期概念（擦除）、结构类型、联合/收窄、空值处理</li>
+  <li><strong>语言能力</strong>：泛型、函数/对象/类类型、异步、模块、工程配置</li>
+  <li><strong>工程能力</strong>：从零搭项目、类型先行设计、运行时校验、工具类型</li>
+  <li><strong>两个里程碑</strong>：读懂真实全栈代码 ✓、自己从零搭项目 ✓</li>
+</ul>
+
+<p><strong>接下来怎么走</strong>（建议）：</p>
+<ol>
+  <li>去写一个真实项目（把 Todo API 扩展成带前端页面的完整应用，或做你工作中需要的工具）</li>
+  <li>学一个框架（React 或 Vue——TS 是它们的官方首选语言）</li>
+  <li>需要时回查：<a href="../reference/glossary.html">术语表</a>、官方 Handbook、或直接问我</li>
+</ol>
+
+<p class="lesson-nav">
+  <a href="0010-todo-api-project.html"><span class="lbl">上一课</span>类型安全实战项目</a>
+  <span class="next"><span class="lbl">课程结束</span>🎓 去写真实项目吧</span>
+</p>
+
+<hr>
+
+<p><strong>有任何不清楚的地方，随时回来问你的老师。</strong>这个工作区会一直保留——你的学习记录、术语表、11 课课程都在这。遇到新问题，我们随时继续。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0011 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

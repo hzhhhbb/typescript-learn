@@ -1,0 +1,10 @@
+.app {
+  max-width: 30rem;
+  margin: 2rem auto;
+  font-family: system-ui, sans-serif;
+}
+.app h1 { font-size: 1.4rem; }
+.app ul { padding-left: 1.2rem; }
+.app li { margin: 0.4rem 0; }
+.app input { padding: 0.4rem 0.6rem; margin-right: 0.5rem; }
+.app button { padding: 0.4rem 1rem; cursor: pointer; }

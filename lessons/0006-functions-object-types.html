@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 6 课：函数与对象类型</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0006 · 类型系统</div>
+  <h1>函数与对象类型</h1>
+  <p class="lesson-summary">全栈代码里 80% 的类型知识都在这课：回调怎么写类型、可选/剩余参数、函数重载的 TS 写法、readonly 和索引签名。函数是 JS 世界的头等公民——类型系统对函数的重视程度远超 C#。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>函数类型：≈ C# 的 Func / 委托</h2>
+
+<p>TS 里函数本身是一种值，有自己的类型。语法是"参数列表 + 箭头 + 返回类型"：</p>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>TypeScript（新的）</th></tr>
+  <tr><td><code>Func&lt;int, int, int&gt; op = (a, b) =&gt; a + b;</code></td><td><code>type MathOp = (a: number, b: number) =&gt; number;</code></td></tr>
+  <tr><td><code>Action&lt;int&gt; log = n =&gt; Console.WriteLine(n);</code></td><td><code>type Log = (n: number) =&gt; void;</code></td></tr>
+</table>
+
+<pre><code><span class="k">type</span> <span class="t">MathOp</span> = (a: <span class="t">number</span>, b: <span class="t">number</span>) =&gt; <span class="t">number</span>;
+
+<span class="k">const</span> add: <span class="t">MathOp</span> = (a, b) =&gt; a + b;       <span class="c">// 参数类型从 MathOp 推断</span>
+<span class="k">const</span> multiply: <span class="t">MathOp</span> = (a, b) =&gt; a * b;
+console.log(add(<span class="n">2</span>, <span class="n">3</span>));  <span class="c">// 5</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  概念和 C# 的委托/Func 一样：函数作为值传递。差异只在语法——TS 把返回类型写在箭头后面，C# 写在 Func&lt;&gt; 尖括号里。
+</div>
+
+<h2>回调参数：全栈代码的常态</h2>
+
+<p>数组方法、事件、API 层全是回调。回调参数的类型直接写函数类型：</p>
+
+<pre><code><span class="k">function</span> forEach(
+  arr: <span class="t">number</span>[],
+  callback: (item: <span class="t">number</span>, index: <span class="t">number</span>) =&gt; <span class="t">void</span>
+): <span class="t">void</span> {
+  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; arr.length; i++) {
+    callback(arr[i], i);
+  }
+}
+
+forEach([<span class="n">10</span>, <span class="n">20</span>, <span class="n">30</span>], (n, i) =&gt; console.log(<span class="s">`#${i}: ${n}`</span>));
+<span class="c">// #0: 10</span>
+<span class="c">// #1: 20</span>
+<span class="c">// #2: 30</span></code></pre>
+
+<div class="warn">
+  回调签名必须匹配，否则编译报错。比如回调里写了 <code>(item: string)</code> 而数组是 number[]——TS2345。错误信息会精确指出签名差异。这是 TS 保护回调类型安全的主要手段。
+</div>
+
+<h2>可选参数、默认参数、剩余参数</h2>
+
+<table class="compare">
+  <tr><th>C#</th><th>TypeScript</th></tr>
+  <tr><td><code>void Greet(string n, string g = "Hello")</code></td><td><code>function greet(name: string, greeting = "Hello")</code></td></tr>
+  <tr><td><code>void Log(string msg, bool verbose)</code>（重载处理可选）</td><td><code>function log(msg: string, verbose?: boolean)</code></td></tr>
+  <tr><td><code>int Sum(params int[] nums)</code></td><td><code>function sum(...nums: number[])</code></td></tr>
+</table>
+
+<pre><code><span class="c">// 可选参数 ?：不传就是 undefined</span>
+<span class="k">function</span> greet(name: <span class="t">string</span>, greeting?: <span class="t">string</span>): <span class="t">string</span> {
+  <span class="k">return</span> <span class="s">`${greeting ?? "Hello"}, ${name}!`</span>;  <span class="c">// ?? 兜底（第四课）</span>
+}
+greet(<span class="s">"Ada"</span>);       <span class="c">// Hello, Ada!</span>
+greet(<span class="s">"Ada"</span>, <span class="s">"Hi"</span>); <span class="c">// Hi, Ada!</span>
+
+<span class="c">// 默认参数：不传就用默认值（类型推断为 string）</span>
+<span class="k">function</span> greet2(name: <span class="t">string</span>, greeting = <span class="s">"Hello"</span>): <span class="t">string</span> {
+  <span class="k">return</span> <span class="s">`${greeting}, ${name}!`</span>;
+}
+
+<span class="c">// 剩余参数 ...：收集所有实参为数组</span>
+<span class="k">function</span> sum(...nums: <span class="t">number</span>[]): <span class="t">number</span> {
+  <span class="k">return</span> nums.reduce((acc, n) =&gt; acc + n, <span class="n">0</span>);
+}
+console.log(sum(<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>));  <span class="c">// 10</span></code></pre>
+
+<div class="note">规则：可选参数（<code>?</code>）和剩余参数必须在参数列表<strong>末尾</strong>——和 C# 一样。</div>
+
+<h2>函数重载：TS 的独特写法</h2>
+
+<p>C# 重载是写多个同名方法定义。TS 的写法不同：<strong>多个签名声明 + 一个兼容所有签名的实现</strong>。</p>
+
+<pre><code><span class="c">// 签名 1：传 string 返回 string</span>
+<span class="k">function</span> pick(input: <span class="t">string</span>): <span class="t">string</span>;
+<span class="c">// 签名 2：传 number 返回 number</span>
+<span class="k">function</span> pick(input: <span class="t">number</span>): <span class="t">number</span>;
+<span class="c">// 实现：参数和返回类型必须是所有签名的"并集"</span>
+<span class="k">function</span> pick(input: <span class="t">string</span> | <span class="t">number</span>): <span class="t">string</span> | <span class="t">number</span> {
+  <span class="k">return</span> <span class="k">typeof</span> input === <span class="s">"string"</span> ? input.toUpperCase() : input * <span class="n">2</span>;
+}
+
+<span class="k">const</span> a = pick(<span class="s">"hi"</span>);  <span class="c">// 类型：string（按签名 1）</span>
+<span class="k">const</span> b = pick(<span class="n">21</span>);   <span class="c">// 类型：number（按签名 2）</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  调用方看到的是<strong>签名列表</strong>，实现是隐藏的。好处：<code>pick("hi")</code> 的类型是 string、<code>pick(21)</code> 是 number——比返回 <code>string | number</code> 精确得多。C# 里这是重载的自然结果；TS 用签名+实现模拟。
+</div>
+
+<h2>对象类型：readonly 与索引签名</h2>
+
+<pre><code><span class="c">// readonly：属性不可重新赋值（编译期检查）</span>
+<span class="k">interface</span> <span class="t">Point</span> {
+  <span class="k">readonly</span> x: <span class="t">number</span>;
+  y: <span class="t">number</span>;
+}
+<span class="k">const</span> p: <span class="t">Point</span> = { x: <span class="n">1</span>, y: <span class="n">2</span> };
+p.x = <span class="n">10</span>;  <span class="bad">// ✗ TS2540: Cannot assign to 'x' because it is a read-only property</span></code></pre>
+
+<pre><code><span class="c">// 索引签名：动态键的对象（字典/映射）</span>
+<span class="k">interface</span> <span class="t">StringMap</span> {
+  [key: <span class="t">string</span>]: <span class="t">string</span>;  <span class="c">// 任意字符串键 → string 值</span>
+}
+<span class="k">const</span> dict: <span class="t">StringMap</span> = { hello: <span class="s">"你好"</span>, world: <span class="s">"世界"</span> };
+console.log(dict.hello);  <span class="c">// 你好</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  readonly ≈ C# 的 readonly 字段 / get-only 属性。索引签名 ≈ C# 的 <code>Dictionary&lt;string, string&gt;</code> 或索引器——但 TS 是纯类型声明，对象本身是普通 JS 对象。
+</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/functions.ts</code> 里写好了全部示例（已验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/functions.js</code>，看输出（回调的 <code>#0: 10</code> 等、重载的 <code>HI</code> / <code>42</code>）。</li>
+    <li><strong>挑战 1</strong>：把 <code>forEach</code> 的回调参数类型改成 <code>(item: string)</code>——编译看 TS2345 怎么描述签名不匹配，再改回来。故意写错一次，学会读这类报错。</li>
+    <li><strong>挑战 2</strong>：取消 <code>p.x = 10;</code> 的注释，编译看 TS2540（readonly 保护），再注释回去。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="类型 (a: number) =&gt; string 对应 C# 的哪种写法？">
+  <h3>Q1 · 函数类型</h3>
+  <ul class="options">
+    <li data-correct="true">Func&lt;int, string&gt;</li>
+    <li>Action&lt;string&gt;</li>
+    <li>Event 委托类型</li>
+    <li>async 方法签名</li>
+  </ul>
+  <div class="explain">函数类型 <code>(a: number) =&gt; string</code> = 入参 number、出参 string = <code>Func&lt;int, string&gt;</code>。Action 无返回值（对应 <code>=&gt; void</code>）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="function greet(name: string, greeting?: string) 调用 greet(&quot;Ada&quot;)？">
+  <h3>Q2 · 可选参数</h3>
+  <ul class="options">
+    <li data-correct="true">编译通过，greeting 是 undefined</li>
+    <li>编译失败，缺少实参</li>
+    <li>编译通过，greeting 是空串</li>
+    <li>编译失败，可选不能省略</li>
+  </ul>
+  <div class="explain">可选参数不传就是 undefined——类型是 <code>string | undefined</code>。函数体内要用 <code>??</code> 或收窄处理（示例里用了 <code>greeting ?? "Hello"</code>）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="function sum(...nums: number[]) 对应 C# 的哪种写法？">
+  <h3>Q3 · 剩余参数</h3>
+  <ul class="options">
+    <li data-correct="true">params int[] nums</li>
+    <li>out int[] nums</li>
+    <li>ref int[] nums</li>
+    <li>IEnumerable&lt;int&gt;</li>
+  </ul>
+  <div class="explain"><code>...nums: number[]</code> 收集所有实参为数组 = C# 的 <code>params int[]</code>。注意它和"接收一个数组参数"的区别：调用时直接 <code>sum(1, 2, 3)</code> 而不是 <code>sum([1,2,3])</code>。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="TS 函数重载的正确声明方式是？">
+  <h3>Q4 · 重载</h3>
+  <ul class="options">
+    <li data-correct="true">多个签名加一个实现</li>
+    <li>多个同名方法定义</li>
+    <li>一个签名加多个实现</li>
+    <li>运行时动态分发</li>
+  </ul>
+  <div class="explain">TS 重载 = 多个签名声明（无函数体）+ 一个兼容所有签名的实现。调用方按签名获得精确类型。<code>多个同名方法定义</code>是 C# 的做法，TS 不支持（同一作用域同名函数只有一个）。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/functions.html">More on Functions（官方文档）</a> — 函数类型、可选/默认/剩余参数、重载的权威参考。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/objects.html">Object Types（官方文档）</a> — readonly、索引签名等对象类型细节。</li>
+  <li><a href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/delegates/">C# 委托文档（Microsoft Learn）</a> — 反向对照函数类型。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 新增 function type、rest parameter、overload signature、optional parameter、readonly 词条。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>函数和对象是 JS 世界的主角。下一课讲<strong>类与继承的 TS 细节</strong>——访问修饰符的差异、<code>implements</code> 与结构类型的配合、abstract 类、<code>#private</code> 字段，以及装饰器预览。你会惊讶 C# 的类知识迁移过来时哪些地方"长歪了"。</p>
+
+<p class="lesson-nav">
+  <a href="0005-generics.html"><span class="lbl">上一课</span>泛型</a>
+  <span class="next"><a href="0007-classes-inheritance.html"><span class="lbl">下一课</span>类与继承的 TS 细节</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>函数类型是全栈代码的骨架——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0006 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

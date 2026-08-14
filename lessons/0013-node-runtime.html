@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 13 课：Node.js 运行时</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0013 · 生态 · 运行时层</div>
+  <h1>Node.js 运行时</h1>
+  <p class="lesson-summary">npm、vite、你的 Todo API——全都跑在 Node 上。这课建立运行时层的心智模型：Node 是什么、怎么跑你的 TS、和浏览器有什么区别、事件循环怎么工作。第一课的回声：Node 只认识 JS。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>Node.js 是什么</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>Node.js</strong>：在浏览器<em>之外</em>执行 JavaScript 的运行时。它给了 JS 两样浏览器没有的东西：<strong>文件系统</strong>（fs）和<strong>完整网络能力</strong>（http）——这让 JS 能做后端。
+</div>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>Node.js</th></tr>
+  <tr><td>.NET 运行时 / CLR（执行 IL）</td><td>Node 运行时（执行 JS）</td></tr>
+  <tr><td>dotnet run 启动程序</td><td><code>node app.js</code> 启动程序</td></tr>
+  <tr><td>运行时带类型元数据</td><td>运行时<strong>无类型信息</strong>（第一课）</td></tr>
+</table>
+
+<div class="warn">
+  关键差异：Node 只执行 JS，<strong>不做类型检查</strong>。<code>node app.ts</code> 直接跑不了——TS 必须先被 tsc 编译成 JS（第一课的编译管线），<code>node app.js</code> 才认识。这也是你 tsconfig 里 outDir 的由来。
+</div>
+
+<h2>TS → Node 的完整管线</h2>
+
+<pre class="term"><code><span class="c">// 你写的 TS</span>
+<span class="dollar">$</span> cat src/app.ts
+<span class="out">let x: number = 42; console.log(x);</span>
+
+<span class="c">// 第一步：编译（tsc 把 TS 变 JS，类型擦除）</span>
+<span class="dollar">$</span> npx tsc
+<span class="out">（生成 dist/app.js，类型消失）</span>
+
+<span class="c">// 第二步：Node 执行 JS</span>
+<span class="dollar">$</span> node dist/app.js
+<span class="out">42</span></code></pre>
+
+<div class="note">
+  现代开发也有"直接跑 TS"的工具（<code>tsx</code>、<code>ts-node</code>）——它们在内部替你完成了"编译 + 运行"两步。但理解底层管线永远有用：生产部署、调试、排查问题时你看到的还是这两步。
+</div>
+
+<h2>Node vs 浏览器：两个 JS 世界</h2>
+
+<p>同一门语言，两套环境。区别在<strong>谁提供 API</strong>：</p>
+
+<table class="compare">
+  <tr><th>能力</th><th>浏览器</th><th>Node</th></tr>
+  <tr><td>全局对象</td><td><code>window</code>、<code>document</code>（DOM）</td><td><code>process</code>（进程）、<code>global</code></td></tr>
+  <tr><td>文件系统</td><td>✗（浏览器不能读写本地文件）</td><td><code>node:fs</code> ✓</td></tr>
+  <tr><td>网络</td><td><code>fetch</code>（Web API）</td><td><code>node:http</code>（服务端）+ fetch</td></tr>
+  <tr><td>共同拥有</td><td colspan="2"><code>console</code>、<code>setTimeout</code>、<code>Promise</code>（语言本身）</td></tr>
+</table>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  语言核心（语法、Promise、async/await）两边一样；<strong>环境 API 不同</strong>。你写前端（React）时用浏览器的 DOM；写后端（Todo API）时用 Node 的内置模块。TS 的类型系统帮你区分：tsconfig 的 <code>lib</code> 里配了 <code>DOM</code> 才有 document 的类型，配了 @types/node 才有 process 的类型。
+</div>
+
+<h2>事件循环：单线程怎么扛住并发</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  Node 是<strong>单线程 + 事件驱动 + 非阻塞 I/O</strong>：
+  <ul>
+    <li><strong>单线程</strong>：一次只执行一段 JS（不像 C# 每请求一线程/线程池）</li>
+    <li><strong>非阻塞</strong>：遇到 I/O（读文件、网络请求）不傻等，而是"记下回调，先去干别的"</li>
+    <li><strong>事件循环</strong>：I/O 完成时，事件循环把对应回调捡回来执行</li>
+  </ul>
+</div>
+
+<pre><code><span class="c">// 理解非阻塞：这段代码的输出顺序会颠覆 C# 直觉</span>
+console.log(<span class="s">"1. 开始"</span>);
+
+setTimeout(() =&gt; console.log(<span class="s">"3. 定时器回调"</span>), <span class="n">0</span>);
+
+console.log(<span class="s">"2. 结束"</span>);
+<span class="c">// 输出：1. 开始 → 2. 结束 → 3. 定时器回调</span></code></pre>
+
+<p>为什么 0 毫秒的定时器也在最后？因为 setTimeout 是 I/O 类操作——它把回调交给事件循环，主线程先跑完同步代码，事件循环再回来执行回调。这就是第八课 <code>await</code> 能"暂停当前函数但不卡死程序"的底层机制。</p>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>Node</th></tr>
+  <tr><td>线程池 + 每请求分配线程</td><td>单线程事件循环，所有请求共享</td></tr>
+  <tr><td>async/await 由线程切换实现</td><td>async/await 由事件循环实现（无线程切换）</td></tr>
+  <tr><td>CPU 密集任务要线程池</td><td>CPU 密集任务会阻塞事件循环（worker_threads 补救）</td></tr>
+</table>
+
+<div class="warn">
+  这是 Node 唯一的"性能红线"：<strong>别在事件循环里做耗时同步操作</strong>（大循环、同步读大文件）。它一阻塞，整个服务器的所有请求都卡住。C# 里一个线程阻塞只影响那个请求。
+</div>
+
+<h2>内置模块：后端工具箱</h2>
+
+<p>所有内置模块用 <code>node:</code> 前缀导入（第九课的模块语法）：</p>
+
+<table class="compare">
+  <tr><th>模块</th><th>干什么</th><th>示例</th></tr>
+  <tr><td><code>node:fs</code></td><td>文件系统读写</td><td><code>readFileSync</code>、<code>writeFile</code></td></tr>
+  <tr><td><code>node:path</code></td><td>跨平台路径处理</td><td><code>join</code>、<code>basename</code>、<code>extname</code></td></tr>
+  <tr><td><code>node:http</code></td><td>HTTP 服务器/客户端</td><td><code>createServer</code>（第十课用过）</td></tr>
+  <tr><td><code>process</code>（全局）</td><td>进程信息</td><td><code>env</code>、<code>argv</code>、<code>cwd()</code>、<code>exit()</code></td></tr>
+</table>
+
+<pre><code><span class="c">// node-runtime.ts 实测：文件 + 路径 + 进程</span>
+<span class="k">import</span> { readFileSync, writeFileSync } <span class="k">from</span> <span class="s">"node:fs"</span>;
+<span class="k">import</span> { join } <span class="k">from</span> <span class="s">"node:path"</span>;
+
+<span class="k">const</span> filePath = join(process.cwd(), <span class="s">"data.txt"</span>);  <span class="c">// 跨平台路径</span>
+writeFileSync(filePath, <span class="s">"Hello from Node!"</span>);
+console.log(readFileSync(filePath, <span class="s">"utf-8"</span>));       <span class="c">// Hello from Node!</span>
+
+console.log(process.env.NODE_ENV ?? <span class="s">"未设置"</span>);          <span class="c">// 环境变量（第四课 ??）</span>
+console.log(process.argv.slice(<span class="n">2</span>));                   <span class="c">// 命令行参数（去掉 node 和文件名）</span></code></pre>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>示例在 <code>code/src/node-runtime.ts</code>（已验证）。做几件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/node-runtime.js hello world</code>——看到 <code>['hello', 'world']</code>（命令行参数进到了 process.argv）。</li>
+    <li><strong>挑战 1</strong>：<code>node -e "console.log(1+1)"</code> ——不用建文件，直接执行一行 JS。再试试 <code>node -e "console.log(typeof process)"</code>。</li>
+    <li><strong>挑战 2（推荐）</strong>：把 <code>data.txt</code> 的读写改成<strong>异步版</strong> <code>readFile</code>/<code>writeFile</code>（回调版或 <code>fs/promises</code> 的 await 版）——用上第八课的 async/await，体验"非阻塞"。</li>
+    <li><strong>挑战 3</strong>：给 Todo API 加一个 <code>GET /health</code> 端点，返回 <code>{ status: "ok", uptime: process.uptime() }</code>——用 process 暴露运行时信息。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="Node.js 是什么？">
+  <h3>Q1 · Node 定位</h3>
+  <ul class="options">
+    <li data-correct="true">JS 的运行时</li>
+    <li>JS 的编译器</li>
+    <li>包管理器</li>
+    <li>前端框架</li>
+  </ul>
+  <div class="explain">Node 在浏览器外执行 JS（≈ .NET 运行时之于 IL）。编译是 tsc 的事，装包是 npm 的事，界面是框架的事——Node 只管"跑 JS"。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="node dist/app.ts 会怎样？">
+  <h3>Q2 · TS 执行管线</h3>
+  <ul class="options">
+    <li data-correct="true">报错，Node 只认 JS</li>
+    <li>正常运行，自动编译</li>
+    <li>报错，缺少 tsconfig</li>
+    <li>正常运行，忽略类型</li>
+  </ul>
+  <div class="explain">Node 只执行 JS，不认识 TS。必须先 <code>tsc</code> 编译成 <code>.js</code> 再 <code>node</code> 执行（tsx/ts-node 是内部替你做了这两步）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="下面哪个 API 是 Node 独有的（浏览器没有）？">
+  <h3>Q3 · Node vs 浏览器</h3>
+  <ul class="options">
+    <li data-correct="true">node:fs</li>
+    <li>document</li>
+    <li>window</li>
+    <li>alert</li>
+  </ul>
+  <div class="explain">fs（文件系统）是 Node 独有——浏览器出于安全不能读写本地文件。document/window/alert 是浏览器独有。console/Promise/fetch 两边都有。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Node 的并发模型是？">
+  <h3>Q4 · 事件循环</h3>
+  <ul class="options">
+    <li data-correct="true">单线程事件驱动</li>
+    <li>每请求分配线程</li>
+    <li>多线程加锁同步</li>
+    <li>协程抢占调度</li>
+  </ul>
+  <div class="explain">Node 单线程 + 事件驱动 + 非阻塞 I/O：I/O 完成时事件循环捡回回调执行。与 C# 的线程池模型相反。CPU 密集的同步操作会阻塞整个事件循环——性能红线。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://nodejs.org/api/">Node.js 官方文档</a> — 所有内置模块的权威参考（fs/path/http/process）。</li>
+  <li><a href="https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick">Node 官方：事件循环指南</a> — 事件循环的完整机制。</li>
+  <li><a href="https://nodejs.org/api/fs.html">node:fs 文档</a> — 挑战 2 的异步读写。</li>
+  <li><a href="../reference/ecosystem-map.html">生态地图</a> — Node 是四层里的运行时层。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>运行时层完成。下一课：<strong>Vite 构建工具</strong>——为什么前端代码不能直接扔给浏览器、dev server 和热更新（HMR）是什么、发布时打包在做什么。这课之后，你就能看懂任何现代前端项目的启动命令了。</p>
+
+<p class="lesson-nav">
+  <a href="0012-npm-npx.html"><span class="lbl">上一课</span>npm 与 npx</a>
+  <span class="next"><a href="0014-vite.html"><span class="lbl">下一课</span>Vite 构建工具</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>事件循环是 C# 开发者最容易别扭的概念——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0013 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

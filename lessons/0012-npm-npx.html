@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 12 课：npm 与 npx</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0012 · 生态 · 工具层</div>
+  <h1>npm 与 npx：装包与跑命令</h1>
+  <p class="lesson-summary">TS 生态的第一层：npm 管理依赖（≈ NuGet + dotnet restore），npx 运行包内命令（≈ dotnet tool）。你在前 11 课已经用过它们无数次，这课把心智模型补齐——你天天敲的 npm install 到底在做什么。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>npm 是什么</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>npm（Node Package Manager）</strong>：Node 的包管理器。它是三层东西合体——比 NuGet 职责更宽：
+  <ul>
+    <li><strong>包仓库</strong>：全球最大的代码仓库（200 万+ 包），typescript、react、vite 全在这（≈ nuget.org）</li>
+    <li><strong>安装器</strong>：下载依赖到本地 node_modules（≈ dotnet restore 到 ~/.nuget/packages）</li>
+    <li><strong>命令运行器</strong>：执行 package.json 里的 scripts（≈ dotnet build 这类项目级命令）</li>
+  </ul>
+</div>
+
+<table class="compare">
+  <tr><th>TS 生态</th><th>C# 生态（你的已知）</th></tr>
+  <tr><td><code>npm install &lt;pkg&gt;</code></td><td><code>dotnet add package</code></td></tr>
+  <tr><td><code>npm install</code>（恢复全部）</td><td><code>dotnet restore</code></td></tr>
+  <tr><td><code>package.json</code></td><td><code>.csproj</code>（项目清单）</td></tr>
+  <tr><td><code>package-lock.json</code></td><td><code>packages.lock.json</code>（版本锁定）</td></tr>
+  <tr><td><code>node_modules/</code></td><td>全局 NuGet 包缓存（但 npm 是<strong>项目本地</strong>的）</td></tr>
+  <tr><td><code>npm run &lt;script&gt;</code></td><td>项目级自定义命令</td></tr>
+</table>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  概念和 NuGet 一样：声明依赖 → 还原 → 使用。关键差异：NuGet 的包是<strong>全局缓存 + 引用</strong>；npm 的依赖<strong>下载到每个项目自己的 node_modules</strong>（同一个包每个项目各有一份）。好处是版本隔离（两个项目可以用不同版本的 react），代价是磁盘占用。
+</div>
+
+<h2>package.json：项目清单</h2>
+
+<p>打开你的 <code>code/package.json</code>，逐块拆解：</p>
+
+<pre><code>{                                       <span class="c">// 顶层</span>
+  <span class="s">"name"</span>: <span class="s">"code"</span>,                <span class="c">// 项目名（npm 包名规范：小写+连字符）</span>
+  <span class="s">"version"</span>: <span class="s">"1.0.0"</span>,           <span class="c">// 项目版本（语义化版本）</span>
+  <span class="s">"scripts"</span>: {                    <span class="c">// 自定义命令（第九课）</span>
+    <span class="s">"build"</span>: <span class="s">"tsc"</span>,
+    <span class="s">"start"</span>: <span class="s">"node dist/main.js"</span>,
+    <span class="s">"dev"</span>: <span class="s">"tsc --watch"</span>
+  },
+  <span class="s">"type"</span>: <span class="s">"commonjs"</span>,          <span class="c">// 模块格式（第九课 CJS/ESM）</span>
+  <span class="s">"devDependencies"</span>: {            <span class="c">// 开发依赖（见下节）</span>
+    <span class="s">"typescript"</span>: <span class="s">"^7.0.2"</span>,
+    <span class="s">"@types/node"</span>: <span class="s">"^26.2.0"</span>
+  }
+}</code></pre>
+
+<h2>dependencies vs devDependencies</h2>
+
+<p>两类依赖，语义完全不同：</p>
+
+<table class="compare">
+  <tr><th></th><th>dependencies</th><th>devDependencies</th></tr>
+  <tr><td>装法</td><td><code>npm install &lt;pkg&gt;</code></td><td><code>npm install -D &lt;pkg&gt;</code></td></tr>
+  <tr><td>用途</td><td><strong>运行时需要</strong>（express、react）</td><td><strong>开发/构建时需要</strong>（typescript、vite、测试工具）</td></tr>
+  <tr><td>部署时</td><td>生产环境也要装</td><td>生产环境可不装</td></tr>
+</table>
+
+<div class="note">
+  直觉判断法：<strong>编译产物里 require/import 到的包 → dependencies；只在构建命令里出现的包 → devDependencies</strong>。typescript 属于后者——编译完就完成了使命，运行时不需要它（第一课：编译后是 JS）。react、express 属于前者——产物要跑起来需要它们。
+</div>
+
+<h2>语义化版本：^7.0.2 是什么意思</h2>
+
+<p>版本号三段：<code>主版本.次版本.补丁</code>（<code>7.0.2</code>）。前缀符号决定"装依赖时允许更新到什么程度"：</p>
+
+<table class="compare">
+  <tr><th>写法</th><th>含义</th><th>例子</th></tr>
+  <tr><td><code>^7.0.2</code></td><td>允许次版本和补丁更新，<strong>不允许主版本变</strong>（最常用）</td><td>可升到 7.x.x，不升 8.x.x</td></tr>
+  <tr><td><code>~7.0.2</code></td><td>只允许补丁更新</td><td>可升到 7.0.x</td></tr>
+  <tr><td><code>7.0.2</code>（精确）</td><td>锁定，不许动</td><td>永远是 7.0.2</td></tr>
+</table>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  C# 里对应 NuGet 的版本范围（<code>[7.0, 8.0)</code> 区间）。<code>^7.0.2</code> ≈ <code>[7.0.2, 8.0.0)</code>。package-lock.json 把最终解析的精确版本记录下来，保证"你的机器和别人机器装的一样"（≈ packages.lock.json 的锁定作用）。
+</div>
+
+<h2>npx：不安装，直接跑</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>npx</strong>（npm 5.2+ 自带）：<em>临时运行</em>包内的命令行工具，<strong>不需要全局安装</strong>。你每天都在用它——<code>npx tsc</code> 就是"运行项目 node_modules 里的 tsc，不全局装"。
+</div>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc --version
+Version 7.0.2            <span class="out"># 用的是项目本地装的 typescript</span>
+
+<span class="dollar">$</span> npx create-vite@latest   <span class="out"># 临时下载并运行脚手架（0014 课的主角）</span></code></pre>
+
+<table class="compare">
+  <tr><th>命令</th><th>在做什么</th><th>C# 对照</th></tr>
+  <tr><td><code>npm run build</code></td><td>执行 package.json scripts 里定义的 build</td><td>项目自定义 target</td></tr>
+  <tr><td><code>npx tsc</code></td><td>运行 node_modules 里 tsc 包的命令</td><td><code>dotnet tool run</code>（近似）</td></tr>
+</table>
+
+<div class="warn">
+  区分：<code>npm run</code> 跑<strong>你自己 scripts 里定义的命令</strong>；<code>npx</code> 跑<strong>某个包提供的命令</strong>。没有 npm run 和 npx 的区别，你就要把 tsc 全局安装——而全局安装的版本会污染所有项目（项目 A 要 tsc 5、项目 B 要 tsc 7，全局只有一个）。
+</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <ol>
+    <li>运行 <code>npm ls --depth=0</code>——看到你的顶层依赖树（typescript、@types/node）。</li>
+    <li>运行 <code>npx tsc --version</code>——确认它输出 <code>Version 7.0.2</code>（用 npx 跑本地包）。</li>
+    <li><strong>挑战 1</strong>：<code>npm view typescript versions</code>——看 typescript 的全部历史版本（体验"查包不装包"）。再 <code>npm outdated</code>——看有没有可更新。</li>
+    <li><strong>挑战 2</strong>：装一个包再卸载，走完整流程：<code>npm install -D lodash</code> → 看 package.json 里多了什么 → <code>npm uninstall lodash</code> → 确认它消失。体会 npm 对项目清单的管理。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="npm install -D typescript 的 -D 作用是？">
+  <h3>Q1 · 开发依赖</h3>
+  <ul class="options">
+    <li data-correct="true">装入 devDependencies</li>
+    <li>装入 dependencies</li>
+    <li>安装到全局环境</li>
+    <li>只下载不写入清单</li>
+  </ul>
+  <div class="explain">-D = --save-dev，写入 devDependencies（开发/构建时用的包，typescript/vite 都在这里）。运行时需要的包（express/react）用普通 npm install 写入 dependencies。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="package.json 里 ^7.0.2 表示？">
+  <h3>Q2 · 语义化版本</h3>
+  <ul class="options">
+    <li data-correct="true">允许更新到 7.x.x</li>
+    <li>锁定精确版本 7.0.2</li>
+    <li>允许任意版本更新</li>
+    <li>只允许补丁更新</li>
+  </ul>
+  <div class="explain">^ 允许次版本和补丁更新（7.x.x），主版本不变。~ 只允许补丁（7.0.x）。无前缀是精确锁定。package-lock.json 记录最终解析的精确版本。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="npx tsc --version 会输出什么？">
+  <h3>Q3 · npx</h3>
+  <ul class="options">
+    <li data-correct="true">显示 tsc 的版本号</li>
+    <li>显示 npm 的版本号</li>
+    <li>显示 node 的版本号</li>
+    <li>报错 tsc 未找到</li>
+  </ul>
+  <div class="explain"><code>--version</code> 让 tsc 打印自己的版本：<code>Version 7.0.2</code>。这个 tsc 来自项目本地的 node_modules（npx 的机制）——不是全局安装的，不会污染其他项目。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="npm run build 执行的是什么？">
+  <h3>Q4 · npm run</h3>
+  <ul class="options">
+    <li data-correct="true">scripts 里的 build 命令</li>
+    <li>npm 内置的构建功能</li>
+    <li>自动编译所有 TS 文件</li>
+    <li>安装构建所需依赖</li>
+  </ul>
+  <div class="explain">npm run 执行 package.json 里 scripts 定义的命令（你的 build 是 "tsc"）。npm 本身没有内置构建——一切由你定义的 script 决定。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://docs.npmjs.com/cli/v10/commands">npm 官方命令文档</a> — 所有 npm 命令的权威参考。</li>
+  <li><a href="https://docs.npmjs.com/cli/v10/commands/npx">npx 官方文档</a> — npx 的行为细节。</li>
+  <li><a href="https://semver.org/lang/zh-CN/">语义化版本规范（semver）</a> — 版本号的完整规范。</li>
+  <li><a href="../reference/ecosystem-map.html">生态地图</a> — npm 是四层里的工具层。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>工具层完成。下一课：<strong>Node.js 运行时</strong>——npm、vite、你的 Todo API 全都跑在它上面。讲清楚：Node 怎么执行 JS、它和浏览器的区别、内置模块、以及为什么你的 TS 要先编译成 JS 才能被 Node 跑（第一课的回声）。</p>
+
+<p class="lesson-nav">
+  <a href="0011-advanced-types.html"><span class="lbl">上一课</span>进阶类型</a>
+  <span class="next"><a href="0013-node-runtime.html"><span class="lbl">下一课</span>Node.js 运行时</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>npm/npx 是你每天敲的命令——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0012 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 课：让 TypeScript 跑起来</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0001 · 环境与心智模型</div>
+  <h1>让 TypeScript 跑起来</h1>
+  <p class="lesson-summary">你精通 Java 和 C#，所以这课不讲"什么是变量"。我们做三件事：建立 <strong>TS 编译管线</strong>的心智模型、在你机器上跑通第一个程序、学会读编译错误。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>先说最重要的事：TS 编译后，类型去哪了？</h2>
+
+<p>这是整个课程最重要的一张图，请把它刻在脑子里：</p>
+
+<pre><code><span class="c">// hello.ts（源码，带类型）</span>
+<span class="k">let</span> price: <span class="t">number</span> = <span class="n">99</span>;
+
+<span class="c">// 经过 tsc 编译 ↓</span>
+
+<span class="c">// hello.js（产物，纯 JavaScript，类型没了）</span>
+<span class="k">let</span> price = <span class="n">99</span>;</code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>类型擦除（type erasure）</strong>：TypeScript 的类型系统只在编译期存在。编译后类型信息<em>全部消失</em>，产出的是纯 JavaScript。运行时没有"变量是什么类型"这一说——只有真实的值。
+</div>
+
+<table class="compare">
+  <tr><th>C# / Java（你的已知）</th><th>TypeScript（新的）</th></tr>
+  <tr><td>编译器产出字节码/IL，元数据进入程序集，运行时可见（反射）</td><td>编译器产出 <em>JavaScript 源码</em>，类型信息不进入产物，运行时不可见</td></tr>
+  <tr><td>类型错误阻止编译 → 阻止运行</td><td>类型错误阻止编译 → 阻止运行（一样！）</td></tr>
+  <tr><td><code>javac</code> / <code>dotnet build</code></td><td><code>tsc</code>（TypeScript Compiler）</td></tr>
+  <tr><td>构建配置：<code>csproj</code> / <code>pom.xml</code></td><td><code>tsconfig.json</code></td></tr>
+  <tr><td>依赖：NuGet / Maven</td><td>依赖：npm</td></tr>
+</table>
+
+<blockquote>
+  最直接的后果：<code>instanceof</code> 只能判断真实对象（<code>instanceof Date</code>），不能判断"是不是这个接口的实现"——因为接口在运行时不存在。这个坑我们后面专门讲。
+</blockquote>
+
+<h2>动手：在你机器上跑通</h2>
+
+<p>打开终端，建一个练习目录（任选位置，我用 <code>~/Projects/typescript-learn/code</code>）：</p>
+
+<pre class="term"><code><span class="dollar">$</span> cd ~/Projects/typescript-learn/code
+<span class="dollar">$</span> npm init -y                    <span class="out"># 生成 package.json（≈ csproj 的极简版）</span>
+<span class="dollar">$</span> npm install typescript --save-dev <span class="out"># 安装 tsc 到本项目</span>
+<span class="dollar">$</span> mkdir src                      <span class="out"># 源码目录（产物默认进 dist/）</span></code></pre>
+
+<p>创建 <code>tsconfig.json</code>（不用 <code>tsc --init</code>，那个生成上百行注释；手写 10 行更清晰）：</p>
+
+<pre><code><span class="c">// tsconfig.json</span>
+{
+  <span class="s">"compilerOptions"</span>: {
+    <span class="s">"strict"</span>: <span class="k">true</span>,       <span class="c">// ← 必须为 true，相当于 C# 的 nullable 全面开启</span>
+    <span class="s">"target"</span>: <span class="s">"ES2022"</span>,    <span class="c">// 输出 JS 的语法版本</span>
+    <span class="s">"module"</span>: <span class="s">"commonjs"</span>, <span class="c">// 模块系统（后课细讲）</span>
+    <span class="s">"outDir"</span>: <span class="s">"./dist"</span>,    <span class="c">// 编译产物输出目录</span>
+    <span class="s">"rootDir"</span>: <span class="s">"./src"</span>    <span class="c">// 源码目录</span>
+  },
+  <span class="s">"include"</span>: [<span class="s">"src"</span>]        <span class="c">// 只编译 src/ 下的 .ts</span>
+}</code></pre>
+
+<div class="note">项目结构约定：源码放 <code>src/</code>，产物进 <code>dist/</code>，和 Maven 的 <code>src/main/java</code> 一个道理。</div>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  <code>strict: true</code> 约等于 C# 里同时开了 Nullable、关闭了隐式 unchecked —— 别偷懒关掉它。官方和社区都把 strict 视为默认。
+</div>
+
+<p>创建 <code>src/hello.ts</code>：</p>
+
+<pre><code><span class="c">// hello.ts</span>
+<span class="k">let</span> message: <span class="t">string</span> = <span class="s">"Hello, TypeScript!"</span>;
+<span class="k">let</span> year = <span class="n">2025</span>;                  <span class="c">// ← 推断为 number，等价于 var year = 2025</span>
+
+<span class="k">function</span> greet(name: <span class="t">string</span>): <span class="t">string</span> {
+  <span class="k">return</span> <span class="s">`Hello, ${name}!`</span>;
+}
+
+console.log(greet(message));
+console.log(<span class="s">"Year:"</span>, year);</code></pre>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc              <span class="out"># 编译：检查类型 + 产出 dist/</span>
+<span class="dollar">$</span> node dist/hello.js    <span class="out"># 运行产物</span>
+Hello, TypeScript!
+Year: 2025</code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>语法对照</strong>：TS 的类型标注是<em>后缀式</em>（<code>name: string</code>），C# 是前置式（<code>string name</code>）。参数、变量、返回值都这样。习惯就好，30 秒就适应了。
+</div>
+
+<table class="compare">
+  <tr><th>C#</th><th>TypeScript</th></tr>
+  <tr><td><code>string name = "Ada";</code></td><td><code>let name: string = "Ada";</code></td></tr>
+  <tr><td><code>var year = 2025;</code></td><td><code>let year = 2025;</code></td></tr>
+  <tr><td><code>int Add(int a, int b) { return a + b; }</code></td><td><code>function add(a: number, b: number): number { return a + b; }</code></td></tr>
+  <tr><td><code>const double PI = 3.14;</code></td><td><code>const PI: number = 3.14;</code></td></tr>
+</table>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  <code>let</code> ≈ <code>var</code>（可重新赋值），<code>const</code> ≈ <code>readonly</code>（不可重新赋值）。JS 的 <code>const</code> 只保证引用不变，不保证内容不变——和 C# 的 <code>readonly</code> 类似，别和 Java 的 <code>final</code> 语义搞混（Java final 对象内容可变）。
+</div>
+
+<h2>练习：制造一个错误，学会读报错</h2>
+
+<p>把 <code>hello.ts</code> 里的一行改成：</p>
+
+<pre><code><span class="k">let</span> year: <span class="t">number</span> = <span class="s">"2025"</span>;   <span class="bad">← 类型错误！</span></code></pre>
+
+<p>再运行 <code>npx tsc</code>，你会看到：</p>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc
+src/hello.ts:3:5 - error TS2322: Type 'string' is not assignable to type 'number'.
+
+3 let year: number = "2025";
+      ~~~~
+
+Found 1 error in src/hello.ts:3</code></pre>
+
+<p>读报错的三个信息（这条知识价值极高，学会它你的调试效率直接翻倍）：</p>
+
+<ul>
+  <li><code>src/hello.ts:3:5</code> — 文件:行:列，精确定位。</li>
+  <li><code>error TS2322</code> — 错误码。2322 = 赋值类型不匹配。报错码是稳定的，可以搜索。</li>
+  <li><code>Type 'string' is not assignable to type 'number'</code> — 方向永远是"源类型不能赋给目标类型"，先看<em>方向</em>再看<em>类型</em>。</li>
+</ul>
+
+<p>改回来，确认 <code>npx tsc</code> 无输出（无错误）再继续。</p>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="下面代码编译时会发生什么？
+let price: number = &quot;99&quot;;">
+  <h3>Q1 · 类型不匹配</h3>
+  <ul class="options">
+    <li data-correct="true">编译失败，string 不能赋给 number</li>
+    <li>编译通过，自动转为 number 类型</li>
+    <li>编译通过，自动转为 string 类型</li>
+    <li>编译通过，运行时抛出 TypeError</li>
+  </ul>
+  <div class="explain">TS 不做隐式类型转换：<code>&quot;99&quot;</code> 是 string，不能赋给标注为 number 的变量，编译期直接报 TS2322。这和你熟悉的 C# 一致——<code>int price = &quot;99&quot;;</code> 同样是编译错误。注意：JS 本身会转换，TS 的职责就是拦下这类隐患。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="源码 let price: number = 99; 编译后，dist 里的 JS 是什么？">
+  <h3>Q2 · 类型擦除</h3>
+  <ul class="options">
+    <li data-correct="true"><code>let price = 99;</code></li>
+    <li><code>let price: number = 99;</code></li>
+    <li><code>let price: any = 99;</code></li>
+    <li><code>let price = &quot;99&quot;;</code></li>
+  </ul>
+  <div class="explain">编译产物里类型标注全部消失：<code>let price = 99;</code>。这就是<strong>类型擦除</strong>——是"删除"，不是"转换为字符串"，也不是"放宽为 any"。运行时没有任何类型信息。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="let x = &quot;hello&quot;; 编译通过后，你再加一行 x = 42; 会发生什么？">
+  <h3>Q3 · 类型推断</h3>
+  <ul class="options">
+    <li data-correct="true">编译失败，x 已被推断为 string 类型</li>
+    <li>编译通过，x 的类型自动变为 number</li>
+    <li>编译通过，x 自动放宽为 any 类型</li>
+    <li>编译通过，运行时抛出 TypeError</li>
+  </ul>
+  <div class="explain">推断出来的类型和显式标注<strong>同等严格</strong>：<code>x</code> 被推断为 string 后，赋 number 会报编译错误。等价于 C# 的 <code>var x = &quot;hello&quot;; x = 42;</code>——同样是编译失败。推断不是"宽松化"，它只是帮你少打字。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="exercise">
+  <div class="ex-title">独立练习（2 分钟）</div>
+  <p>不改 tsconfig，想一下再回答：把 <code>"strict"</code> 改成 <code>false</code> 后重新编译 <code>let year: number = "2025";</code>，还会报错吗？<em>先在心里给出答案，再动手验证。</em>（提示：strict 主要管 null 检查和隐式 any，类型不匹配检查不属于它）</p>
+  <details class="answer"><summary>看答案</summary><p>会。2322 错误不受 strict 控制——类型不匹配是 TS 的基础检查。strict 影响的是另一批检查（nullable、implicit any）。这个区分后面会有专课。</p></details>
+</div>
+
+<h2>本节主要资源</h2>
+
+<p>这是为 Java/C# 开发者准备的官方入门，5 分钟读完，强烈建议现在就花 5 分钟过一遍（你会看到"结构类型"——那是我们下节课的主角）：</p>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-oop.html">TypeScript for Java/C# Programmers（官方文档）</a> — 本课对照内容的权威出处。</li>
+  <li><a href="https://www.typescriptlang.org/play">TypeScript Playground</a> — 不想建项目时快速验证语法的在线工具。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 本课用到的术语（type erasure、inference、strict 等）都有定义。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>你已经能跑 TS 了。下节课讲 TS 类型系统里<strong>最独特、也最容易让 C#/Java 开发者摔跤</strong>的概念：<strong>结构类型（structural typing）</strong>——为什么在 TS 里"长得像接口的对象"不需要实现接口就能当接口用，以及它带来的陷阱。</p>
+
+<p class="lesson-nav">
+  <span class="lbl">上一课 · 无（第一课）</span>
+  <span class="next"><a href="0002-structural-typing.html"><span class="lbl">下一课</span>结构类型</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>我是你的教学代理，任何一步卡住了（报错看不懂、命令不对、概念绕）都可以随时问我，我会用 C#/Java 对照的方式给你解释。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0001 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

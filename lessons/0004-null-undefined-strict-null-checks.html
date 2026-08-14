@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 4 课：null、undefined 与严格空检查</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0004 · 类型系统</div>
+  <h1>null、undefined 与严格空检查</h1>
+  <p class="lesson-summary">JavaScript 有两个"空"——这是它和 C# 最烦人的差异之一。"undefined is not a function"是 JS 世界头号报错。这课把这堆问题连根拔掉，好消息是：处理空值的两个主力操作符（<code>?.</code> 和 <code>??</code>）你已经在 C# 里用熟了。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>先认识两个"空"</h2>
+
+<p>C# 里只有一个 <code>null</code>。JavaScript 有两个不同的空值，语义完全不同：</p>
+
+<table class="compare">
+  <tr><th>值</th><th>含义</th><th>典型产生场景</th></tr>
+  <tr><td><code>undefined</code></td><td>"这个值<em>根本不存在</em>"</td><td>访问不存在的对象属性、读取未赋值的变量、函数没有 return、可选属性缺席、可选链落在空处</td></tr>
+  <tr><td><code>null</code></td><td>"开发者<em>显式表示</em>这里没有值"</td><td>你主动写 <code>let x = null</code>、API 返回 null</td></tr>
+</table>
+
+<div class="warn">
+  记住这个区分：<code>undefined</code> 是"系统给的没有"，<code>null</code> 是"人给的没有"。C# 里只有 null；TS 里两者并存，而且类型检查对它们一视同仁（都可空、都要收窄）。
+</div>
+
+<h2>严格空检查（strictNullChecks）</h2>
+
+<p>你的 tsconfig 里 <code>strict: true</code> 包含 <code>strictNullChecks</code>。开启后，null/undefined 不能赋给普通类型：</p>
+
+<pre><code><span class="k">const</span> name: <span class="t">string</span> = <span class="k">null</span>;   <span class="bad">// ✗ TS2322: Type 'null' is not assignable to type 'string'</span>
+
+<span class="k">const</span> nick: <span class="t">string</span> | <span class="k">null</span> = <span class="k">null</span>; <span class="c">// ✓ 显式声明可空</span>
+<span class="k">const</span> maybe: <span class="t">string</span> | <span class="k">undefined</span> = <span class="k">undefined</span>; <span class="c">// ✓</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  这等价于 C# 8+ 的可空引用类型（<code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code>）。区别在于严格度：C# 里 <code>string?</code> 显式可空，<code>string</code> 不可空；TS 里 <code>string</code> 直接不可空，想要可空必须写 <code>string | null</code>——没有"代码库迁移"的灰色地带。这也是为什么 TS 代码里联合类型满天飞。
+</div>
+
+<h2>处理空值的四个武器</h2>
+
+<h3>武器 1：可选链 <code>?.</code> —— 和 C# 一模一样</h3>
+
+<pre><code><span class="k">interface</span> User {
+  name: <span class="t">string</span>;
+  address?: { city?: <span class="t">string</span> };  <span class="c">// 可选 → 类型是 { city?: string } | undefined</span>
+}
+
+<span class="k">const</span> user: <span class="t">User</span> = { name: <span class="s">"Ada"</span> };  <span class="c">// 没有 address</span>
+
+<span class="k">const</span> city = user.address?.city;  <span class="c">// undefined，不抛异常！</span>
+<span class="c">// user.address.city               // ✗ 这样写：TypeError: Cannot read properties</span>
+<span class="c">//                                 //   of undefined (reading 'city')</span></code></pre>
+
+<p>链上任何一环是空，整个表达式返回 <code>undefined</code>。支持调用（<code>fn?.()</code>）和索引（<code>arr?.[0]</code>）。你的 C# 经验直接迁移。</p>
+
+<h3>武器 2：空值合并 <code>??</code> —— 和 C# 一模一样</h3>
+
+<pre><code><span class="k">function</span> getTimeout(cfg: <span class="t">Config</span>): <span class="t">number</span> {
+  <span class="k">return</span> cfg.timeoutMs ?? <span class="n">5000</span>;  <span class="c">// timeoutMs 是 number | undefined → ?? 给默认值</span>
+}</code></pre>
+
+<h3>武器 3：非空断言 <code>!</code> —— 逃生舱，慎用</h3>
+
+<pre><code><span class="k">const</span> bad = user.address!.city;  <span class="c">// 编译通过，但运行时 address 是 undefined → 崩溃</span></code></pre>
+
+<p><code>!</code> 告诉编译器"这里不会是空，跳过检查"。它和 C# 的 <code>!</code>（null-forgiving operator）一样，是<strong>对编译器的承诺</strong>——承诺错了，运行时直接崩。只在你有确凿把握时用。</p>
+
+<h3>武器 4：收窄（你已会的第三课技能）</h3>
+
+<pre><code><span class="k">if</span> (user.address) {
+  console.log(user.address.city);  <span class="c">// 收窄后安全访问</span>
+} <span class="k">else</span> {
+  console.log(<span class="s">"no address"</span>);
+}</code></pre>
+
+<div class="note">优先级建议：收窄 &gt; <code>?.</code> &gt; <code>??</code> &gt; <code>!</code>。<code>!</code> 应是最少见的写法。</div>
+
+<h2>大坑：<code>??</code> vs <code>||</code></h2>
+
+<p>新手常把 <code>??</code> 当 <code>||</code> 用，但两者对"假值"的态度完全不同：</p>
+
+<table class="compare">
+  <tr><th>操作符</th><th>当左侧为 0 / "" / false 时</th><th>当左侧为 null / undefined 时</th></tr>
+  <tr><td><code>a ?? b</code></td><td><strong>返回 a</strong>（0、""、false 都是合法值）</td><td>返回 b</td></tr>
+  <tr><td><code>a || b</code></td><td>返回 b（把它们当"假"）</td><td>返回 b</td></tr>
+</table>
+
+<pre><code><span class="k">function</span> pickNullish(x: <span class="t">number</span> | <span class="k">undefined</span>, fb: <span class="t">number</span>): <span class="t">number</span> {
+  <span class="k">return</span> x ?? fb;  <span class="c">// 0 ?? 100 = 0</span>
+}
+<span class="k">function</span> pickFalsy(x: <span class="t">number</span>, fb: <span class="t">number</span>): <span class="t">number</span> {
+  <span class="k">return</span> x || fb;  <span class="c">// 0 || 100 = 100</span>
+}</code></pre>
+
+<div class="warn">
+  全栈真实场景：端口号 0、重试次数 0、布尔开关 false 都是<strong>合法的业务值</strong>。用 <code>||</code> 兜底会把它们悄悄换成默认值——这是非常隐蔽的 bug。<code>??</code> 只认"真空"。
+</div>
+
+<div class="new">
+  <span class="tag">环境注意</span>
+  你的环境装的是 <strong>TypeScript 7</strong>（新原生编译器）。它新增了严格检查：<code>0 ?? 100</code> 这种"左侧静态上永不可能是空的 <code>??</code>"会直接报错（TS2869），<code>"" || x</code> 这种"永远为假"也会报（TS2873）。老教程里的演示代码在你机器上可能编译不过——看到这两个错误码，说明 TS 在提醒你"这个兜底永远不生效"。
+</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/nullish.ts</code> 里写好了全部示例（已验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/nullish.js</code>，确认输出（重点看 <code>city: undefined</code> 和 <code>0 ?? 100 = 0</code> / <code>0 || 100 = 100</code>）。</li>
+    <li><strong>挑战 1</strong>：把 <code>getTimeout</code> 里的 <code>?? 5000</code> 改成 <code>|| 5000</code>，传 <code>timeoutMs: 0</code> 调用——看它返回 5000 而不是 0（<code>||</code> 把 0 吃了），再改回来。</li>
+    <li><strong>挑战 2</strong>：取消 <code>const bad = user.address!.city;</code> 的注释，编译（通过！）然后运行——亲眼看到崩溃（非空断言承诺失败的后果），再注释回去。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="strict 模式下，const name: string = null; 编译结果？">
+  <h3>Q1 · 严格空检查</h3>
+  <ul class="options">
+    <li data-correct="true">编译失败，null 不能赋给 string</li>
+    <li>编译通过，null 是合法空值</li>
+    <li>编译通过，name 自动变为可空</li>
+    <li>编译失败，必须标注 any</li>
+  </ul>
+  <div class="explain"><code>strictNullChecks</code> 下 <code>string</code> 不含 null。想要可空必须显式写 <code>string | null</code>——和 C# 可空引用类型类似，但没有灰色地带。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="user.address?.city 当 address 不存在时，结果是什么？">
+  <h3>Q2 · 可选链</h3>
+  <ul class="options">
+    <li data-correct="true">返回 undefined，不抛异常</li>
+    <li>返回 null，不抛异常</li>
+    <li>抛 TypeError 异常</li>
+    <li>返回空字符串</li>
+  </ul>
+  <div class="explain">可选链上任何一环为空，整个表达式短路返回 <code>undefined</code>。C# 的 <code>?. </code>语义一致。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="pickNullish(0, 100) —— 函数体是 return x ?? fb; （x: number | undefined）返回？">
+  <h3>Q3 · 空值合并</h3>
+  <ul class="options">
+    <li data-correct="true">0，0 不是 null/undefined</li>
+    <li>100，0 被当作假值</li>
+    <li>undefined，x 是 0</li>
+    <li>100，?? 总返回右侧</li>
+  </ul>
+  <div class="explain"><code>??</code> 只对 null/undefined 生效。<code>0</code> 是合法值，原样返回。这是它与 <code>||</code> 的核心区别（<code>||</code> 会把 0 当假）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="以下哪个场景产生的是 undefined 而不是 null？">
+  <h3>Q4 · undefined vs null</h3>
+  <ul class="options">
+    <li data-correct="true">访问不存在的对象属性</li>
+    <li>开发者显式赋 null</li>
+    <li>函数返回 null 字面量</li>
+    <li>变量初始化为 null</li>
+  </ul>
+  <div class="explain"><code>undefined</code> 是"系统给的没有"（访问不存在属性、未赋值变量、无 return 的函数）；<code>null</code> 是"人给的没有"（显式写 null）。两者都要按可空处理。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html">Narrowing（官方文档）</a> — 第 4 节起讲了 null/undefined 的处理（真值收窄、<code>??</code>、可选链）。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#null-and-undefined">Everyday Types — null and undefined（官方）</a> — 两个空值的权威定义。</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing">MDN: Nullish coalescing (??)</a> — 含 <code>??</code> vs <code>||</code> 的官方说明。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 新增 strictNullChecks、optional chaining、nullish coalescing、non-null assertion 词条。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>空值处理是你与 C# 经验差距最大的地方，现在补齐了。下一课讲<strong>泛型</strong>——你熟悉 C# 泛型，但 TS 的泛型更灵活也更野：函数泛型、泛型约束（<code>extends</code>）、以及 C# 里没有的 <code>infer</code> 关键字。泛型是 TS"类型编程"的起点。</p>
+
+<p class="lesson-nav">
+  <a href="0003-union-types-narrowing.html"><span class="lbl">上一课</span>联合类型与类型收窄</a>
+  <span class="next"><a href="0005-generics.html"><span class="lbl">下一课</span>泛型</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>null/undefined 是最容易踩坑的地方——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0004 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

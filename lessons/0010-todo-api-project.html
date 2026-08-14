@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 10 课：类型安全实战项目</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0010 · 里程碑 🏆</div>
+  <h1>类型安全实战项目：从零搭一个 Todo API</h1>
+  <p class="lesson-summary">这课把前面 9 课的全部知识串起来：从空目录开始，搭一个零依赖的 Todo API 服务并跑起来。做完它，你就达到了使命的第二个里程碑——<strong>自己从零搭项目</strong>。</p>
+  <span class="time-box">⏱ 20-25 分钟</span>
+</div>
+
+<h2>项目目标与结构</h2>
+
+<p>做一个 HTTP API：创建待办、列出待办、切换完成状态。零第三方依赖（只用 Node 内置 http 模块），三个文件：</p>
+
+<pre class="term"><code>todo-api/
+├── package.json        <span class="out"># scripts: build / start（第九课）</span>
+├── tsconfig.json       <span class="out"># strict + ES2022 + commonjs（第九课）</span>
+└── src/
+    ├── types.ts        <span class="out"># 类型先行：领域模型（第二/三课）</span>
+    ├── store.ts        <span class="out"># 数据层：CRUD（空值/联合）</span>
+    └── server.ts       <span class="out"># HTTP 层：路由/异步/校验</span></code></pre>
+
+<div class="note">我已经把项目完整搭好并全部测试通过，就在 <code>code/todo-api/</code>。课程最后会给你从零重建的完整命令序列（挑战 4）。</div>
+
+<h2>第 1 步：类型先行（types.ts）</h2>
+
+<p>先定义数据形状，再写任何逻辑——这是类型安全项目的设计哲学：</p>
+
+<pre><code><span class="c">// types.ts —— 类型先行：先定义数据形状，再写逻辑</span>
+<span class="k">export interface</span> <span class="t">Todo</span> {       <span class="c">// 领域模型（第二课 interface）</span>
+  id: <span class="t">number</span>;
+  title: <span class="t">string</span>;
+  done: <span class="t">boolean</span>;
+}
+
+<span class="c">// 创建待办的输入：没有 id 和 done——服务器负责生成</span>
+<span class="k">export interface</span> <span class="t">CreateTodoInput</span> {
+  title: <span class="t">string</span>;
+}</code></pre>
+
+<div class="new">
+  <span class="tag">设计哲学</span>
+  <strong>类型先行（type-first）</strong>：输入类型（CreateTodoInput）和领域模型（Todo）分开——创建时客户端不需要提供 id/done。类型系统让你<em>在编译期</em>就区分"客户端能给的"和"服务器生成的"，写 store 时编译器会强制你补上 id 和 done。
+</div>
+
+<h2>第 2 步：数据层（store.ts）</h2>
+
+<pre><code><span class="c">// store.ts —— 内存存储 + CRUD</span>
+<span class="k">import type</span> { <span class="t">Todo</span>, <span class="t">CreateTodoInput</span> } <span class="k">from</span> <span class="s">"./types"</span>;  <span class="c">// 第九课 import type</span>
+
+<span class="k">const</span> todos: <span class="t">Todo</span>[] = [];
+<span class="k">let</span> nextId = <span class="n">1</span>;
+
+<span class="k">export function</span> listTodos(): <span class="t">Todo</span>[] { <span class="k">return</span> todos; }
+
+<span class="k">export function</span> createTodo(input: <span class="t">CreateTodoInput</span>): <span class="t">Todo</span> {
+  <span class="c">// 类型系统强制：Todo 需要 id、title、done 三个字段</span>
+  <span class="k">const</span> todo: <span class="t">Todo</span> = { id: nextId++, title: input.title, done: <span class="k">false</span> };
+  todos.push(todo);
+  <span class="k">return</span> todo;
+}
+
+<span class="c">// 空值：找不到返回 undefined（第四课）</span>
+<span class="k">export function</span> toggleTodo(id: <span class="t">number</span>): <span class="t">Todo</span> | <span class="k">undefined</span> {
+  <span class="k">const</span> todo = todos.find((t) =&gt; t.id === id);
+  <span class="k">if</span> (todo) { todo.done = !todo.done; }  <span class="c">// 收窄（第三课）</span>
+  <span class="k">return</span> todo;
+}</code></pre>
+
+<h2>第 3 步：HTTP 层（server.ts）</h2>
+
+<p>核心是两个概念：<strong>事件驱动的异步</strong>（第八课）和 <strong>类型管不到网络输入</strong>（必须运行时校验）：</p>
+
+<pre><code><span class="c">// server.ts —— 入口（节选）</span>
+<span class="k">import</span> { createServer } <span class="k">from</span> <span class="s">"node:http"</span>;
+<span class="k">import type</span> { <span class="t">ServerResponse</span> } <span class="k">from</span> <span class="s">"node:http"</span>;
+<span class="k">import</span> { listTodos, createTodo, toggleTodo } <span class="k">from</span> <span class="s">"./store"</span>;
+
+<span class="k">const</span> server = createServer((req, res) =&gt; {
+  <span class="c">// 路由：方法 + 路径</span>
+  <span class="k">if</span> (req.method === <span class="s">"GET"</span> &amp;&amp; req.url === <span class="s">"/todos"</span>) {
+    sendJson(res, <span class="n">200</span>, listTodos());
+    <span class="k">return</span>;
+  }
+
+  <span class="k">if</span> (req.method === <span class="s">"POST"</span> &amp;&amp; req.url === <span class="s">"/todos"</span>) {
+    <span class="c">// 读取请求体：事件驱动（第八课）</span>
+    <span class="k">let</span> raw = <span class="s">""</span>;
+    req.on(<span class="s">"data"</span>, (chunk) =&gt; (raw += chunk));
+    req.on(<span class="s">"end"</span>, () =&gt; {
+      <span class="k">const</span> input = JSON.parse(raw) <span class="k">as</span> { title?: <span class="t">unknown</span> };
+      <span class="k">if</span> (<span class="k">typeof</span> input.title !== <span class="s">"string"</span> || input.title.trim() === <span class="s">""</span>) {
+        sendJson(res, <span class="n">400</span>, { error: <span class="s">"title must be a non-empty string"</span> });
+        <span class="k">return</span>;
+      }
+      sendJson(res, <span class="n">201</span>, createTodo({ title: input.title.trim() }));
+    });
+    <span class="k">return</span>;
+  }
+
+  <span class="c">// 路径参数：正则解析 + 空值收窄 → 404</span>
+  <span class="k">const</span> match = <span class="s">/^\/todos\/(\d+)$/</span>.exec(req.url ?? <span class="s">""</span>);
+  <span class="k">if</span> (req.method === <span class="s">"PATCH"</span> &amp;&amp; match) {
+    <span class="k">const</span> todo = toggleTodo(Number(match[<span class="n">1</span>]));
+    <span class="k">if</span> (!todo) { sendJson(res, <span class="n">404</span>, { error: <span class="s">"todo not found"</span> }); <span class="k">return</span>; }
+    sendJson(res, <span class="n">200</span>, todo);
+    <span class="k">return</span>;
+  }
+  sendJson(res, <span class="n">404</span>, { error: <span class="s">"not found"</span> });
+});</code></pre>
+
+<div class="warn">
+  <strong>全栈最重要的认知</strong>：类型系统<em>管不到网络输入</em>。<code>JSON.parse</code> 返回 <code>any</code>，客户端可能发来任何东西（空字符串、数字、缺字段）。所以 API 边界必须做<strong>运行时校验</strong>——这是编译期类型检查补不上的最后一道防线。C# 里同样如此（反序列化后要 ModelState 校验）。
+</div>
+
+<h2>跑起来！</h2>
+
+<pre class="term"><code><span class="dollar">$</span> cd code/todo-api
+<span class="dollar">$</span> npm install typescript @types/node --save-dev   <span class="out"># 已装好</span>
+<span class="dollar">$</span> npm run build
+<span class="dollar">$</span> npm start            <span class="out"># 输出: Todo API 运行在 http://localhost:3000</span></code></pre>
+
+<p>另开一个终端测试（curl 是 macOS/Linux 自带，Windows 用 Git Bash 或浏览器）：</p>
+
+<pre class="term"><code><span class="dollar">$</span> curl http://localhost:3000/todos
+[]                          <span class="out"># 空列表</span>
+
+<span class="dollar">$</span> curl -X POST http://localhost:3000/todos -H "Content-Type: application/json" -d '{"title":"学习 TypeScript"}'
+{"id":1,"title":"学习 TypeScript","done":false}
+
+<span class="dollar">$</span> curl -X PATCH http://localhost:3000/todos/1
+{"id":1,"title":"学习 TypeScript","done":true}
+
+<span class="dollar">$</span> curl -X POST http://localhost:3000/todos -H "Content-Type: application/json" -d '{"title":""}'
+{"error":"title must be a non-empty string"}     <span class="out"># 400 校验</span>
+
+<span class="dollar">$</span> curl -X PATCH http://localhost:3000/todos/999
+{"error":"todo not found"}                       <span class="out"># 404 空值收窄</span></code></pre>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">扩展项目（10 分钟，核心是挑战 1）</div>
+  <ol>
+    <li><strong>挑战 1（必做）</strong>：加一个 <code>DELETE /todos/:id</code> 端点。提示：store.ts 加 <code>deleteTodo(id: number): Todo | undefined</code>（用 <code>findIndex</code> + <code>splice</code>），server.ts 加路由分支（复用 PATCH 的正则匹配），删除成功返回 200 + 被删对象，不存在返回 404。</li>
+    <li><strong>挑战 2（推荐）</strong>：加 <code>GET /todos?done=true</code> 过滤。提示：用 <code>req.url?.split("?")[1]</code> 取查询串，<code>new URLSearchParams(...)</code> 解析，然后 <code>todos.filter(t =&gt; t.done === flag)</code>。</li>
+    <li><strong>挑战 3</strong>：给 Todo 加 <code>priority: "low" | "medium" | "high"</code> 字段（第三课字面量联合）——类型系统会强制你改 createTodo 和 POST 校验。</li>
+    <li><strong>挑战 4（可选）</strong>：删掉 todo-api/ 目录（保留 src 之外的全部），按本课命令从零重建一遍——这是"自己从零搭项目"的最终检验。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="POST 处理里为什么做 typeof input.title 校验？">
+  <h3>Q1 · 运行时校验</h3>
+  <ul class="options">
+    <li data-correct="true">网络输入不受类型系统保护</li>
+    <li>类型系统不检查 string</li>
+    <li>JSON.parse 总是返回正确类型</li>
+    <li>只有 class 需要校验</li>
+  </ul>
+  <div class="explain">JSON.parse 返回 any，客户端可能发任何东西（空串、数字、缺字段）。编译期类型检查到不了 API 边界——运行时校验是最后防线（C# 里对应 ModelState 校验）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="toggleTodo 返回 Todo | undefined，server 层怎么处理？">
+  <h3>Q2 · 空值收窄</h3>
+  <ul class="options">
+    <li data-correct="true">if (!todo) 收窄后返回 404</li>
+    <li>直接把 undefined 发给客户端</li>
+    <li>强制断言 todo 一定存在</li>
+    <li>让客户端自己处理空值</li>
+  </ul>
+  <div class="explain">存储层返回 <code>Todo | undefined</code>（第三/四课），HTTP 层收窄：不存在 → 404 响应。undefined 不会泄露给客户端。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="为什么类型先写在 types.ts？">
+  <h3>Q3 · 类型先行</h3>
+  <ul class="options">
+    <li data-correct="true">编译器帮你检查所有使用点</li>
+    <li>因为 C# 里必须分开写</li>
+    <li>为了加快编译速度</li>
+    <li>让源码文件更短</li>
+  </ul>
+  <div class="explain">类型先行 = 先定义形状再写逻辑：写 createTodo 时编译器强制你补 id/done；改字段时编译器找出所有相关代码（第十课的"改一处找齐所有"）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="req.on(&quot;data&quot;/&quot;end&quot;) 是什么模式？">
+  <h3>Q4 · 事件驱动</h3>
+  <ul class="options">
+    <li data-correct="true">事件驱动的异步</li>
+    <li>同步阻塞读取</li>
+    <li>Promise 自动解析</li>
+    <li>回调返回 JSON</li>
+  </ul>
+  <div class="explain">Node 的流是事件驱动的（第八课）：请求体分块到达触发 data，结束触发 end。代码在 end 里处理完整请求体。这是 Node 异步心智模型的实际应用。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://nodejs.org/api/http.html">Node.js http 模块文档</a> — 本课用的 createServer 的权威参考。</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams">MDN: URLSearchParams</a> — 挑战 2 的查询参数解析。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/intro.html">TypeScript Handbook</a> — 需要回查任何概念时来这里。</li>
+</ul>
+
+<h2>里程碑达成 🏆</h2>
+
+<p>你刚刚做了 C# 后端里每天在做的事——只是用 TypeScript：定义模型、写存储逻辑、搭 HTTP 层、做运行时校验、跑起来、测接口。而且全程类型安全。这就是全栈开发后端的日常。</p>
+
+<p><strong>恭喜完成第二个里程碑：自己从零搭项目。</strong>剩最后一块拼图：<strong>进阶类型</strong>（映射类型、条件类型、infer）——这是"类型编程"，写库和框架才需要，选学。你可以选择现在学，或者先去真实项目里练手，需要时再回来。</p>
+
+<p class="lesson-nav">
+  <a href="0009-modules.html"><span class="lbl">上一课</span>模块系统与工程配置</a>
+  <span class="next"><a href="0011-advanced-types.html"><span class="lbl">下一课</span>映射类型与条件类型</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>这是里程碑课——任何一步卡住（服务器起不来、curl 报错、挑战写不出来），随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0010 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

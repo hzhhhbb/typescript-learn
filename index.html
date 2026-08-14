@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript 全栈课程（C#/Java 迁移）</title>
+<link rel="stylesheet" href="assets/lesson.css">
+<style>
+  .course-list { list-style: none; padding: 0; margin: 1rem 0; }
+  .course-list li {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.8rem 1.1rem;
+    margin: 0.5rem 0;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .course-list li:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .course-list .num {
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+  .course-list a { border-bottom: none; font-weight: 600; font-size: 1.02rem; }
+  .course-list .desc { color: var(--ink-soft); font-size: 0.9rem; margin-top: 0.2rem; }
+  .stage { margin-top: 2.2rem; }
+  .stage h2 { border-bottom: 2px solid var(--accent); }
+  .stage.eco h2 { border-bottom-color: var(--ok); }
+  .stage.eco .num { color: var(--ok); }
+  .refs { margin: 1.4rem 0; }
+  .refs a { display: inline-block; margin: 0.3rem 0.6rem 0.3rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">TypeScript 全栈课程</div>
+  <h1>从 C#/Java 到 TypeScript 全栈</h1>
+  <p class="lesson-summary">15 课完整学习路线：语言核心（类型系统 → 工程实践 → 类型编程）→ 生态四层（npm → Node → Vite → React）。每课 15-20 分钟，概念对照 C#/Java，含可运行练习与测验。</p>
+</div>
+
+<p><a href="MISSION.md">📌 教学使命</a> · <a href="RESOURCES.md">📚 学习资源</a> · <a href="NOTES.md">📝 教学笔记</a></p>
+
+<div class="stage">
+  <h2>阶段一：语言核心（0001-0011）</h2>
+  <ul class="course-list">
+    <li><span class="num">Lesson 0001</span><a href="lessons/0001-hello-typescript.html">让 TypeScript 跑起来</a><div class="desc">环境搭建、类型擦除心智模型、编译管线</div></li>
+    <li><span class="num">Lesson 0002</span><a href="lessons/0002-structural-typing.html">结构类型</a><div class="desc">TS 与 C#/Java 最根本的类型系统差异</div></li>
+    <li><span class="num">Lesson 0003</span><a href="lessons/0003-union-types-narrowing.html">联合类型与类型收窄</a><div class="desc">string | number、字面量联合、可辨识联合、穷尽性检查</div></li>
+    <li><span class="num">Lesson 0004</span><a href="lessons/0004-null-undefined-strict-null-checks.html">null、undefined 与严格空检查</a><div class="desc">两个"空"、可选链、空值合并、非空断言</div></li>
+    <li><span class="num">Lesson 0005</span><a href="lessons/0005-generics.html">泛型</a><div class="desc">运行时擦除、extends 约束、infer 预告</div></li>
+    <li><span class="num">Lesson 0006</span><a href="lessons/0006-functions-object-types.html">函数与对象类型</a><div class="desc">函数类型、回调、重载、readonly、索引签名</div></li>
+    <li><span class="num">Lesson 0007</span><a href="lessons/0007-classes-inheritance.html">类与继承的 TS 细节</a><div class="desc">参数属性、两种 private、abstract、装饰器</div></li>
+    <li><span class="num">Lesson 0008</span><a href="lessons/0008-async-promise.html">异步与 Promise</a><div class="desc">async/await、fetch 错误模型、Promise.all</div></li>
+    <li><span class="num">Lesson 0009</span><a href="lessons/0009-modules.html">模块系统与工程配置</a><div class="desc">import/export、CJS vs ESM、tsconfig 深入、npm scripts</div></li>
+    <li><span class="num">Lesson 0010</span><a href="lessons/0010-todo-api-project.html">类型安全实战项目</a><div class="desc">从零搭 Todo API：类型先行、运行时校验、事件驱动</div></li>
+    <li><span class="num">Lesson 0011</span><a href="lessons/0011-advanced-types.html">进阶类型（类型编程）</a><div class="desc">keyof、映射类型、条件类型、infer——含逐步推导</div></li>
+  </ul>
+</div>
+
+<div class="stage eco">
+  <h2>阶段二：生态四层（0012-0015）</h2>
+  <ul class="course-list">
+    <li><span class="num">Lesson 0012</span><a href="lessons/0012-npm-npx.html">npm 与 npx</a><div class="desc">工具层：装包、语义化版本、npx 跑命令</div></li>
+    <li><span class="num">Lesson 0013</span><a href="lessons/0013-node-runtime.html">Node.js 运行时</a><div class="desc">运行时层：事件循环、内置模块、Node vs 浏览器</div></li>
+    <li><span class="num">Lesson 0014</span><a href="lessons/0014-vite.html">Vite 构建工具</a><div class="desc">构建层：dev server、HMR、打包、tsc 分工</div></li>
+    <li><span class="num">Lesson 0015</span><a href="lessons/0015-react.html">React 全景</a><div class="desc">框架层：UI = f(state)、组件、useState/useEffect、全栈闭环</div></li>
+  </ul>
+</div>
+
+<div class="refs">
+  <h2>参考文档</h2>
+  <a href="reference/glossary.html">📖 术语表（C#/Java 对照）</a>
+  <a href="reference/ecosystem-map.html">🗺️ 生态地图（四层全景）</a>
+</div>
+
+<div class="note">
+  <strong>学习记录</strong>：<a href="learning-records/">learning-records/</a> 目录记录了每次课程的掌握情况与教学决策，是学习进度的完整档案。
+</div>
+
+</main>
+<footer>
+  <p>TypeScript 全栈课程 · 15 课 · <a href="MISSION.md">教学使命</a></p>
+</footer>
+</body>
+</html>

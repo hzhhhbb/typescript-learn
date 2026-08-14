@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 3 课：联合类型与类型收窄</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0003 · 类型系统</div>
+  <h1>联合类型与类型收窄</h1>
+  <p class="lesson-summary">"这个值可能是 string，也可能是 number"——在 C# 里你要么用 object 加一堆模式匹配，要么引第三方库。在 TypeScript 里只是一行 <code>type Id = string | number</code>。这课讲联合类型，以及编译器怎么在运行时检查中一步步收窄类型。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>热身：补上第二课没做的挑战（1 分钟）</h2>
+
+<p>打开 <code>code/src/structural.ts</code>，取消 <code>pet3</code> 那行的注释，运行 <code>npx tsc</code>，亲眼看到 TS2353，再注释回去。这个亲手体验会强化"字面量 vs 变量"的记忆——比看十遍都管用。</p>
+
+<h2>为什么需要联合类型？看看 C# 有多笨重</h2>
+
+<div class="code-compare">
+  <div class="side csharp">
+    <div class="lang">C# · 你的已知</div>
+<pre><code><span class="k">object</span> id = <span class="k">Get</span>Id();
+<span class="k">if</span> (id <span class="k">is</span> <span class="t">string</span> name) {
+  SearchByName(name);
+}
+<span class="k">else if</span> (id <span class="k">is</span> <span class="t">int</span> num) {
+  SearchById(num);
+}</code></pre>
+  </div>
+  <div class="side typescript">
+    <div class="lang">TypeScript · 新的</div>
+<pre><code><span class="k">type</span> <span class="t">Id</span> = <span class="t">string</span> | <span class="t">number</span>;
+
+<span class="k">function</span> lookup(id: <span class="t">Id</span>) {
+  <span class="k">if</span> (<span class="k">typeof</span> id === <span class="s">"string"</span>) {
+    SearchByName(id);  <span class="c">// 已收窄为 string</span>
+  } <span class="k">else</span> {
+    SearchById(id);    <span class="c">// 已收窄为 number</span>
+  }
+}</code></pre>
+  </div>
+</div>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>联合类型（union type）</strong>：<code>A | B</code> 表示"这个值<em>要么是 A 要么是 B</em>"。它是编译期概念——运行时没有任何"联合类型"的对象，只有一个真实的值。
+</div>
+
+<div class="warn">
+  一个常见误解要立刻纠正：联合类型是"或"，但类型合并是"与"。如果两个 interface 合并成一个类型，成员会<strong>叠加</strong>（交集语义）；而联合是<strong>选其一</strong>（并集语义）。别搞混。
+</div>
+
+<h2>字面量联合：枚举的轻量替代</h2>
+
+<p>把具体值当作类型，组合成"选项集合"——这是 TS 生态里枚举的主流替代品：</p>
+
+<pre><code><span class="k">type</span> <span class="t">Status</span> = <span class="s">"pending"</span> | <span class="s">"active"</span> | <span class="s">"done"</span>;
+
+<span class="k">let</span> s: <span class="t">Status</span> = <span class="s">"pending"</span>;  <span class="c">// ✓</span>
+s = <span class="s">"done"</span>;                    <span class="c">// ✓</span>
+s = <span class="s">"cancelled"</span>;              <span class="bad">// ✗ TS2322</span></code></pre>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc
+src/unions.ts:9:5 - error TS2322: Type '"cancelled"' is not assignable to type 'Status'.</code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  字面量联合 ≈ C# 的 enum，但有区别：TS 也有 <code>enum</code> 关键字，社区却更常推荐字面量联合——因为它只是类型，不产生运行时对象，类型检查更严格（<code>"done"</code> 直接可赋，不用 <code>Status.Done</code> 转换）。全栈代码里你会大量见到这种写法。
+</div>
+
+<h2>类型收窄：编译器跟着你的检查走</h2>
+
+<p>联合类型的值在使用前必须先"收窄"到具体类型。收窄的机制是：<strong>你在运行时做的检查（typeof、in、instanceof、===），编译器会同步更新编译期的类型</strong>。</p>
+
+<pre><code><span class="k">function</span> lookup(id: <span class="t">Id</span>): <span class="t">string</span> {
+  <span class="k">if</span> (<span class="k">typeof</span> id === <span class="s">"string"</span>) {
+    <span class="k">return</span> id.toUpperCase();  <span class="c">// ✓ 这里 id 是 string，有 toUpperCase</span>
+  }
+  <span class="k">return</span> <span class="s">`id: ${id}`</span>;         <span class="c">// ✓ 这里 id 是 number</span>
+}
+
+<span class="c">// 在检查之外访问联合类型的专属方法 —— 编译错误：</span>
+<span class="c">// error TS2339: Property 'toUpperCase' does not exist on type 'string | number'</span></code></pre>
+
+<blockquote>
+  收窄是"编译期检查跟着运行时检查走"——这正是第一课心智模型的延伸：TS 在编译期模拟你的代码在运行时做什么。检查了 typeof，编译器就信你，把类型范围缩小。
+</blockquote>
+
+<h3>一个经典的坑：typeof null</h3>
+
+<pre><code>console.log(<span class="k">typeof</span> <span class="k">null</span>);  <span class="c">// "object" —— 不是 "null"！</span></code></pre>
+
+<p>这是 JavaScript 的历史遗留 bug（1995 年就存在）。后果：<code>typeof x === "object"</code> 检查<strong>不会</strong>排除 <code>null</code>。判断"可能是 null 的对象"要用 <code>x !== null</code> 或 <code>x == null</code> 或 <code>x === null</code>，而不是 typeof。</p>
+
+<h2>可辨识联合：switch 收窄的完整形态</h2>
+
+<p>这是全栈开发里最高频的联合类型模式——用一个 <code>kind</code> 字段区分每种分支：</p>
+
+<pre><code><span class="k">type</span> <span class="t">Shape</span> =
+  | { <span class="t">kind</span>: <span class="s">"circle"</span>; radius: <span class="t">number</span> }
+  | { <span class="t">kind</span>: <span class="s">"square"</span>; size: <span class="t">number</span> };
+
+<span class="k">function</span> area(shape: <span class="t">Shape</span>): <span class="t">number</span> {
+  <span class="k">switch</span> (shape.kind) {
+    <span class="k">case</span> <span class="s">"circle"</span>:
+      <span class="k">return</span> Math.PI * shape.radius ** <span class="n">2</span>;  <span class="c">// shape 收窄为 circle 分支</span>
+    <span class="k">case</span> <span class="s">"square"</span>:
+      <span class="k">return</span> shape.size * shape.size;        <span class="c">// shape 收窄为 square 分支</span>
+  }
+}</code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>可辨识联合（discriminated union）</strong>：联合的每个分支都有一个独一无二的字面量标记（<code>kind</code>）。switch 按标记分流，每个 case 里类型自动收窄。
+</div>
+
+<h3>杀手锏：穷尽性检查</h3>
+
+<p>给 <code>Shape</code> 加第三种分支，但忘了在 switch 里处理它——编译器会帮你抓到：</p>
+
+<pre><code><span class="k">type</span> <span class="t">Shape</span> = ... | { <span class="t">kind</span>: <span class="s">"triangle"</span>; base: <span class="t">number</span>; height: <span class="t">number</span> };
+
+<span class="c">// switch 里没有 case "triangle" —— 编译错误：</span>
+<span class="c">// error TS2366: Function lacks ending return statement and return type</span>
+<span class="c">// does not include 'undefined'.</span></code></pre>
+
+<p>加新分支时，编译器强制你处理它。这就是"修改一处、编译器帮你找齐所有相关代码"——C# 的 switch 表达式也有穷尽性检查（<code>_</code> 兜底分支），概念完全一样。</p>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>TypeScript（新的）</th></tr>
+  <tr><td><code>shape switch { Circle c =&gt; ..., Square s =&gt; ... }</code> 运行时模式匹配</td><td><code>switch (shape.kind) { ... }</code> 编译期类型收窄</td></tr>
+  <tr><td>模式匹配是运行时机制（检查真实对象）</td><td>收窄是编译期机制（基于你的检查更新类型）</td></tr>
+</table>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/unions.ts</code> 里写好了全部示例（已验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/unions.js</code>，看输出。注意最后一行 <code>typeof null = object</code>。</li>
+    <li><strong>挑战 1</strong>：把 <code>lookup</code> 里的 <code>typeof</code> 检查删掉，直接写 <code>id.toUpperCase()</code>——看 TS2339 报错（证明收窄只在检查之后生效），再恢复。</li>
+    <li><strong>挑战 2</strong>：给 <code>Shape</code> 加一个 <code>{ kind: "triangle"; base: number; height: number }</code> 分支，先<em>不</em>改 switch——编译看 TS2366（穷尽性检查），然后在 switch 里补上 <code>case "triangle": return (shape.base * shape.height) / 2;</code>。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="function f(x: string | number) 里，if (typeof x === &quot;string&quot;) 分支内 x 的类型是？">
+  <h3>Q1 · 收窄机制</h3>
+  <ul class="options">
+    <li data-correct="true">收窄为 string 类型</li>
+    <li>仍是 string | number</li>
+    <li>收窄为 number 类型</li>
+    <li>变为 any 类型</li>
+  </ul>
+  <div class="explain">运行时检查 <code>typeof</code> 后，编译器同步收窄编译期类型。<code>typeof x === "string"</code> 为真的分支里，x 就是 string——可以安全调用字符串专属方法。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="type Status = &quot;pending&quot; | &quot;done&quot;; 然后 let s: Status = &quot;done&quot;; 编译结果？">
+  <h3>Q2 · 字面量联合</h3>
+  <ul class="options">
+    <li data-correct="true">编译通过，done 是合法值</li>
+    <li>编译失败，必须用枚举类型</li>
+    <li>编译失败，字符串不能做类型</li>
+    <li>编译通过，s 变为普通字符串</li>
+  </ul>
+  <div class="explain">字面量联合把具体值当类型。<code>"done"</code> 在联合里，赋值合法；<code>"cancelled"</code> 不在联合里，报 TS2322。它只是类型，不产生运行时对象（区别于 C# 的 enum）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="可辨识联合 Shape 的 switch 里，case &quot;circle&quot; 分支中 shape 的类型是？">
+  <h3>Q3 · 可辨识联合</h3>
+  <ul class="options">
+    <li data-correct="true">收窄为 circle 分支类型</li>
+    <li>仍是完整联合类型</li>
+    <li>收窄为 square 分支类型</li>
+    <li>变为 any 类型</li>
+  </ul>
+  <div class="explain">switch 按 <code>kind</code> 标记分流后，每个 case 里 shape 收窄为该分支类型。若新增分支而忘了加 case，编译器报 TS2366（穷尽性检查）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="typeof null 返回什么？">
+  <h3>Q4 · null 的坑</h3>
+  <ul class="options">
+    <li data-correct="true">"object"</li>
+    <li>"null"</li>
+    <li>"undefined"</li>
+    <li>"number"</li>
+  </ul>
+  <div class="explain">JS 的历史 bug：<code>typeof null === "object"</code>。所以判断"可能是 null 的对象"时，不能用 typeof 排除 null——要显式检查 <code>x !== null</code>。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#unions">Everyday Types — Unions（官方文档）</a> — 联合类型的权威定义。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html">Narrowing（官方文档）</a> — 收窄的完整机制（typeof、in、instanceof、可辨识联合、穷尽性检查）。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-oop.html">TypeScript for Java/C# Programmers（官方）</a> — 第 3 节有联合类型的简介。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — union type、narrowing 词条已有定义。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>联合类型让你第一次体会到"类型作为数据描述"的威力。下一课处理全栈开发里最烦人的一对概念：<strong>null、undefined 与严格空检查（strictNullChecks）</strong>——C# 的可空引用类型在这里放大成了什么，为什么 "undefined is not a function" 是 JS 世界的头号报错。</p>
+
+<p class="lesson-nav">
+  <a href="0002-structural-typing.html"><span class="lbl">上一课</span>结构类型</a>
+  <span class="next"><a href="0004-null-undefined-strict-null-checks.html"><span class="lbl">下一课</span>null、undefined 与严格空检查</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>联合类型 + 收窄是全栈开发的核心武器，值得完全掌握——任何一步没绕过来，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0003 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

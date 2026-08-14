@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript 生态地图</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+<style>
+  /* 生态地图特有样式：四层堆叠图 */
+  .stack { margin: 1.5rem 0; }
+  .stack .layer {
+    border: 2px solid var(--rule);
+    border-radius: 10px;
+    padding: 1rem 1.3rem;
+    margin-bottom: 0.8rem;
+    background: #fff;
+  }
+  .stack .layer .lname {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .stack .layer .lname .tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    padding: 0.1rem 0.45rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+  .stack .layer.l-tool .lname .tag { background: var(--csharp-soft); color: var(--csharp); }
+  .stack .layer.l-runtime .lname .tag { background: var(--warn-soft); color: var(--warn); }
+  .stack .layer.l-build .lname .tag { background: var(--accent-soft); color: var(--accent); }
+  .stack .layer.l-framework .lname .tag { background: var(--ok-soft); color: var(--ok); }
+  .stack .layer .ldesc { font-size: 0.92rem; color: var(--ink-soft); margin: 0.3rem 0 0.5rem; }
+  .stack .layer .lcmds { font-size: 0.85rem; font-family: var(--mono); }
+  .stack .layer .lcs { font-size: 0.82rem; color: var(--csharp); margin-top: 0.4rem; }
+  .arrow-down { text-align: center; color: var(--ink-faint); font-size: 1.1rem; margin: -0.2rem 0 0.3rem; }
+</style>
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Reference · 生态地图</div>
+  <h1>TypeScript 生态地图</h1>
+  <p class="lesson-summary">一图看懂 TS 生态的四层结构。配套课程：0012 npm/npx → 0013 node → 0014 vite → 0015 react。打印出来贴桌边，看项目配置时随手查。</p>
+</div>
+
+<h2>四层全景</h2>
+
+<p>你的代码从写到跑，经过四个层。每一层解决一个问题：</p>
+
+<div class="stack">
+  <div class="layer l-framework">
+    <div class="lname">框架层：React（0015 课）<span class="tag">写界面</span></div>
+    <div class="ldesc">用组件声明 UI：<code>&lt;TodoItem title="..." /&gt;</code>。TS 类型保护 props 和状态。</div>
+    <div class="lcmds">npx create-vite@latest · npm run dev</div>
+    <div class="lcs">C# 对照：Blazor / Razor 组件（声明式 UI）</div>
+  </div>
+  <div class="arrow-down">↓ 编译 + 打包成浏览器能跑的静态文件</div>
+
+  <div class="layer l-build">
+    <div class="lname">构建层：Vite（0014 课）<span class="tag">打包</span></div>
+    <div class="ldesc">开发时提供 dev server + 热更新（HMR），发布时把 TS/JSX/CSS 打包成少量静态文件。</div>
+    <div class="lcmds">npm create vite@latest · npm run dev · npm run build</div>
+    <div class="lcs">C# 对照：MSBuild + 发布流程（构建产物）</div>
+  </div>
+  <div class="arrow-down">↓ 运行时执行</div>
+
+  <div class="layer l-runtime">
+    <div class="lname">运行时层：Node.js（0013 课）<span class="tag">跑 JS</span></div>
+    <div class="ldesc">执行 JS 的运行时（浏览器之外）。后端代码、构建工具、npm 本身都跑在 Node 上。</div>
+    <div class="lcmds">node app.js · node --version</div>
+    <div class="lcs">C# 对照：.NET 运行时 / CLR（但 Node 只跑 JS，不管类型）</div>
+  </div>
+  <div class="arrow-down">↓ 管理代码包</div>
+
+  <div class="layer l-tool">
+    <div class="lname">工具层：npm / npx（0012 课）<span class="tag">装包</span></div>
+    <div class="ldesc">npm 装依赖（typescript、react、vite 全是 npm 包）；npx 临时运行包里的命令。</div>
+    <div class="lcmds">npm install · npm run build · npx tsc</div>
+    <div class="lcs">C# 对照：NuGet（装包）+ dotnet CLI（跑命令）</div>
+  </div>
+</div>
+
+<h2>一个完整请求的旅程（全栈闭环）</h2>
+
+<pre><code>浏览器里 React 组件（框架层）
+  → 点击"添加待办"
+  → fetch("/todos") 发请求            <span class="c">// 前端 JS</span>
+  → Vite 开发服务器把它转给 Node（构建/运行时层）
+  → Node 里的 API 处理（Todo API：types/store/server）
+  → 返回 JSON
+  → React 用数据重新渲染界面</code></pre>
+
+<p>你在第十课写的 Todo API 是"运行时层"的一部分。生态课结束时，你会给它加一个 React 前端——到时候这条链上的每一环你都亲手碰过。</p>
+
+<h2>常用命令速查</h2>
+
+<table class="compare">
+  <tr><th>命令</th><th>作用</th><th>C# 对照</th></tr>
+  <tr><td><code>npm install &lt;pkg&gt;</code></td><td>安装依赖到 node_modules</td><td><code>dotnet add package</code></td></tr>
+  <tr><td><code>npm install</code></td><td>按 package.json 安装全部依赖</td><td><code>dotnet restore</code></td></tr>
+  <tr><td><code>npm install -D &lt;pkg&gt;</code></td><td>装为开发依赖（构建时用）</td><td>工具类包（类似 devDependencies 概念）</td></tr>
+  <tr><td><code>npm run &lt;script&gt;</code></td><td>执行 package.json scripts 里的命令</td><td><code>dotnet build</code> / 自定义 target</td></tr>
+  <tr><td><code>npx &lt;cmd&gt;</code></td><td>临时运行包内命令，不全局安装</td><td><code>dotnet tool run</code></td></tr>
+  <tr><td><code>npm ls</code></td><td>列出已装依赖</td><td>项目依赖树查看</td></tr>
+  <tr><td><code>npm update</code></td><td>更新依赖</td><td><code>dotnet update</code></td></tr>
+  <tr><td><code>npm outdated</code></td><td>查看可更新版本</td><td>NuGet 更新检查</td></tr>
+  <tr><td><code>node app.js</code></td><td>运行 JS 文件</td><td><code>dotnet run</code></td></tr>
+  <tr><td><code>vite</code>（经 npx）</td><td>启动开发服务器</td><td><code>dotnet watch run</code>（近似）</td></tr>
+</table>
+
+<h2>关键心智模型</h2>
+
+<ul>
+  <li><strong>一切皆包</strong>：typescript、react、vite 都是 npm 包。没有"内置框架"——装什么用什么。</li>
+  <li><strong>npm 管装，npx 管跑</strong>：装包用 npm，运行包内的命令行工具用 npx（不用全局安装）。</li>
+  <li><strong>Node 是底座</strong>：npm、vite、你写的后端全都跑在 Node 上。Node 只认识 JS——TS 必须先编译成 JS（第一课）。</li>
+  <li><strong>前端要构建</strong>：浏览器不能直接跑 TS/JSX，Vite 负责把它们变成浏览器能吃的静态文件。</li>
+  <li><strong>框架是最后一层</strong>：React 解决"界面怎么声明"，底下的工具链它不管。</li>
+</ul>
+
+<h2>术语对照</h2>
+
+<table class="compare">
+  <tr><th>TS 生态</th><th>C# 生态</th></tr>
+  <tr><td>npm 包</td><td>NuGet 包</td></tr>
+  <tr><td>package.json</td><td>.csproj（项目清单）</td></tr>
+  <tr><td>package-lock.json</td><td>packages.lock.json（版本锁定）</td></tr>
+  <tr><td>node_modules/</td><td>packages/（全局包目录）</td></tr>
+  <tr><td>Node.js</td><td>.NET 运行时</td></tr>
+  <tr><td>Vite</td><td>MSBuild + 发布工具</td></tr>
+  <tr><td>React</td><td>Blazor / Razor</td></tr>
+</table>
+
+</main>
+<footer>
+  <p>TypeScript 生态地图 · <a href="glossary.html">术语表</a> · 配套课程 0012-0015</p>
+</footer>
+</body>
+</html>

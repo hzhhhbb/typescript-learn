@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 7 课：类与继承的 TS 细节</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0007 · 类型系统</div>
+  <h1>类与继承的 TS 细节</h1>
+  <p class="lesson-summary">类是你最熟悉的领域——所以这课只讲差异。参数属性、两种 private、implements 在结构类型下的意义、abstract、装饰器。你会惊讶有些地方"长歪了"。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>语法对照：基础几乎一样</h2>
+
+<div class="code-compare">
+  <div class="side csharp">
+    <div class="lang">C# · 你的已知</div>
+<pre><code><span class="k">class</span> Dog : Animal {
+  <span class="k">public</span> <span class="t">string</span> Breed { <span class="k">get</span>; }
+  <span class="k">public</span> Dog(<span class="t">string</span> name, <span class="t">string</span> breed)
+    : <span class="k">base</span>(name) { Breed = breed; }
+}</code></pre>
+  </div>
+  <div class="side typescript">
+    <div class="lang">TypeScript · 新的</div>
+<pre><code><span class="k">class</span> Dog <span class="k">extends</span> Animal {
+  <span class="k">constructor</span>(name: <span class="t">string</span>, <span class="k">public</span> breed: <span class="t">string</span>) {
+    <span class="k">super</span>(name);  <span class="c">// 必须先调 super</span>
+  }
+}</code></pre>
+  </div>
+</div>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>参数属性（parameter property）</strong>：constructor 参数带 <code>public</code>/<code>private</code>/<code>protected</code> 修饰符时，TS 自动声明字段并赋值。<code>constructor(public breed: string)</code> 等价于手写 <code>breed: string;</code> 字段 + <code>this.breed = breed;</code>。C# 没有这个糖，是 TS 生态最常见的写法。
+</div>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  继承用 <code>extends</code>（不是冒号），调基类构造用 <code>super()</code>（不是 base()）。单继承、<code>override</code> 语义与 C# 相同。
+</div>
+
+<h2>两种 private：这是最容易踩的坑</h2>
+
+<p>TS 里有<strong>两种</strong>"私有"，语义完全不同：</p>
+
+<table class="compare">
+  <tr><th>写法</th><th>检查时机</th><th>运行时</th></tr>
+  <tr><td><code>private balance</code></td><td>编译期软约束（TS2341）</td><td><strong>编译后是普通属性</strong>，运行时可见可改</td></tr>
+  <tr><td><code>#secret</code></td><td>编译期 + 运行时</td><td><strong>真私有</strong>，外界访问直接抛错</td></tr>
+</table>
+
+<pre><code><span class="k">class</span> BankAccount {
+  <span class="k">private</span> balance = <span class="n">0</span>;  <span class="c">// 编译期私有</span>
+  <span class="k">#secret</span> = <span class="s">"hidden"</span>;  <span class="c">// 运行时真私有</span>
+
+  deposit(amount: <span class="t">number</span>): <span class="t">void</span> { <span class="k">this</span>.balance += amount; }
+}
+
+<span class="k">const</span> acc = <span class="k">new</span> BankAccount();
+<span class="k">const</span> asAny = acc <span class="k">as</span> any;
+console.log(asAny.balance); <span class="c">// 0 —— private 是编译期软约束，as any 能绕开</span>
+console.log(acc.#secret);   <span class="bad">// ✗ TS18013 + 运行时会抛错</span></code></pre>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc
+src/_err.ts:6:17 - error TS18013: Property '#secret' is not accessible
+outside class 'BankAccount' because it has a private identifier.</code></pre>
+
+<div class="warn">
+  全栈现实：老代码多用 <code>private</code>（Java/C# 习惯的直接迁移），新代码和库代码越来越多用 <code>#</code>（JS 生态原生的真私有）。混用也常见——封装 API 边界用 <code>#</code>，内部实现细节用 <code>private</code> 即可。
+</div>
+
+<h2>implements：结构类型下的"文档化意图"</h2>
+
+<p>第二课讲过：TS 里对象不用显式实现接口，形状匹配即可。那 <code>implements</code> 有什么用？</p>
+
+<pre><code><span class="k">interface</span> Flyable {
+  fly(): <span class="t">void</span>;
+}
+
+<span class="k">class</span> Bird <span class="k">implements</span> Flyable {  <span class="c">// 写了 implements：漏掉 fly 会报错</span>
+  fly(): <span class="t">void</span> { console.log(<span class="s">"flap flap"</span>); }
+}</code></pre>
+
+<div class="note">
+  <code>implements</code> 不改变兼容性（结构类型下不写也兼容），它做两件事：<strong>① 编译期校验</strong>——漏实现成员时在类定义处报错（而不是在赋值处）；<strong>② 文档化意图</strong>——读代码的人一眼知道这个类承诺实现什么。C# 里 implements 是类型系统必需的；TS 里它是可选的纪律。
+</div>
+
+<h2>abstract 与 getter/setter：和 C# 相同</h2>
+
+<pre><code><span class="k">abstract</span> <span class="k">class</span> Shape {
+  <span class="k">abstract</span> area(): <span class="t">number</span>;  <span class="c">// 子类必须实现</span>
+  describe(): <span class="t">string</span> {
+    <span class="k">return</span> <span class="s">`area = ${this.area().toFixed(2)}`</span>;
+  }
+}
+<span class="k">class</span> Circle <span class="k">extends</span> Shape {
+  <span class="k">constructor</span>(<span class="k">private</span> radius: <span class="t">number</span>) { <span class="k">super</span>(); }
+  area(): <span class="t">number</span> { <span class="k">return</span> Math.PI * <span class="k">this</span>.radius ** <span class="n">2</span>; }
+}
+<span class="k">new</span> Shape();  <span class="bad">// ✗ TS2511: Cannot create an instance of an abstract class</span></code></pre>
+
+<pre><code><span class="k">class</span> Temperature {
+  <span class="k">private</span> _celsius = <span class="n">0</span>;
+  <span class="k">get</span> celsius(): <span class="t">number</span> { <span class="k">return</span> <span class="k">this</span>._celsius; }
+  <span class="k">set</span> celsius(v: <span class="t">number</span>) { <span class="k">this</span>._celsius = v; }
+  <span class="k">get</span> fahrenheit(): <span class="t">number</span> { <span class="k">return</span> (<span class="k">this</span>._celsius * <span class="n">9</span>) / <span class="n">5</span> + <span class="n">32</span>; }
+}</code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  abstract 类/方法、getter/setter 的语义与 C# 完全相同——直接迁移，不用重新学。小习惯：TS 里私有后备字段常用下划线前缀（<code>_celsius</code>），配合同名 getter/setter。
+</div>
+
+<h2>装饰器预览：@ 语法</h2>
+
+<p>Angular、NestJS 等框架大量使用装饰器。TS 5+ 支持标准装饰器（你的 TS 7 环境直接可用，无需 experimentalDecorators 标志）：</p>
+
+<pre><code><span class="k">function</span> logged(value: <span class="t">any</span>, context: <span class="t">any</span>) {
+  console.log(<span class="s">`[decorator] ${String(context.name)}`</span>);
+}
+
+<span class="k">class</span> Greeter {
+  @logged
+  greet(): <span class="t">string</span> { <span class="k">return</span> <span class="s">"hi"</span>; }
+}
+<span class="c">// 调用 greet() 时输出: [decorator] greet</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  装饰器 ≈ C# Attribute 的"函数版"：Attribute 是声明式元数据（运行时反射读取），装饰器是<strong>包裹函数</strong>（在声明时执行、可以替换或增强行为）。框架用它实现依赖注入、路由注册、日志等横切逻辑。现在知道存在即可，用框架时再深入。
+</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/classes.ts</code> 里写好了全部示例（已验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/classes.js</code>，看输出（含装饰器的 <code>[decorator] greet</code>）。</li>
+    <li><strong>挑战 1</strong>：取消 <code>new Shape();</code> 的注释，编译看 TS2511，再注释回去。然后取消 <code>console.log(acc.balance);</code> 的注释看 TS2341（private 软约束）——再试试 <code>console.log((acc as any).balance)</code>，会发现绕过了！</li>
+    <li><strong>挑战 2</strong>：把 <code>private balance</code> 改成 <code>#balance</code>，全部改完后用 <code>(acc as any).balance</code> 访问——发现绕不过去了（真私有）。体会两种 private 的差别。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="constructor(public breed: string) 的作用是？">
+  <h3>Q1 · 参数属性</h3>
+  <ul class="options">
+    <li data-correct="true">声明字段并自动赋值</li>
+    <li>仅声明一个普通参数</li>
+    <li>声明一个公共方法</li>
+    <li>声明一个静态字段</li>
+  </ul>
+  <div class="explain">参数属性 = 字段声明 + 构造赋值二合一。<code>constructor(public breed: string)</code> 等价于 <code>breed: string;</code> + <code>this.breed = breed;</code>。TS 生态的标准写法。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="TS 的 private 字段（如 private balance）编译后是什么？">
+  <h3>Q2 · private 的真相</h3>
+  <ul class="options">
+    <li data-correct="true">普通属性，运行时可见</li>
+    <li>运行时强制私有</li>
+    <li>编译后字段消失</li>
+    <li>自动变成 # 字段</li>
+  </ul>
+  <div class="explain"><code>private</code> 是编译期软约束：类型检查挡住直接访问，但编译后就是普通属性，<code>as any</code> 能绕开。需要运行时真私有用 <code>#字段</code>。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="#secret 字段与 private 字段的区别是？">
+  <h3>Q3 · # 私有字段</h3>
+  <ul class="options">
+    <li data-correct="true">运行时真私有，外部访问抛错</li>
+    <li>编译期私有，运行时可见</li>
+    <li>只能用于静态字段</li>
+    <li>等价于 public 字段</li>
+  </ul>
+  <div class="explain"><code>#</code> 是 JS 原生的真私有：编译后保留、运行时强制，<code>as any</code> 也绕不过（TS18013 + 运行时 TypeError）。库代码和封装 API 边界常用它。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="TS 子类构造函数里必须首先调用？">
+  <h3>Q4 · 继承顺序</h3>
+  <ul class="options">
+    <li data-correct="true">super()</li>
+    <li>base()</li>
+    <li>this()</li>
+    <li>不必调用任何东西</li>
+  </ul>
+  <div class="explain">TS 用 <code>super()</code>（C# 是 base()）。必须在访问 this 之前调用，否则 TS17009 报错。这是 JS 的类初始化规则。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/classes.html">Classes（官方文档）</a> — 类、继承、参数属性、修饰符、abstract 的权威参考。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/decorators.html">Decorators（官方文档）</a> — 装饰器参考（实验版说明 + 标准版链接）。</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Private_class_fields">MDN: Private class fields</a> — # 字段的运行时语义。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 新增 parameter property、#private、abstract、decorator 词条。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>类课结束，语言类型系统全部覆盖。下一课是进入真实全栈世界前的最后一课：<strong>异步与 Promise</strong>——<code>async/await</code> 的 TS 类型、fetch API、错误处理模式。这是 Node.js 后端和前端 API 层的绝对核心。学完它，你就达到了使命的第一个里程碑：<strong>读懂真实全栈代码</strong>。</p>
+
+<p class="lesson-nav">
+  <a href="0006-functions-object-types.html"><span class="lbl">上一课</span>函数与对象类型</a>
+  <span class="next"><a href="0008-async-promise.html"><span class="lbl">下一课</span>异步与 Promise</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>两种 private 是 C# 开发者最需要建立区分的地方——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0007 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

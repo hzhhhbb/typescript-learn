@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 15 课：React 全景</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0015 · 生态 · 框架层（完结）</div>
+  <h1>React 全景：给 Todo API 加前端</h1>
+  <p class="lesson-summary">最后一课：用 React 给第十课的 Todo API 加一个前端。你会看到全栈闭环——组件声明界面、fetch 请求后端、JSON 回来重新渲染。概念深度：看懂 React 代码（写应用是下一阶段的事）。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>React 是什么：UI = f(state)</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>React</strong>：声明式 UI 库。核心心智模型一句话——<strong>界面是状态的函数</strong>：<code>UI = f(state)</code>。你描述"状态长什么样 → 界面应该是什么样"，React 负责把界面渲染出来，状态变了它自动重新渲染。
+</div>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>React</th></tr>
+  <tr><td>Blazor / Razor 组件</td><td>React 组件（函数组件是主流）</td></tr>
+  <tr><td><code>[Parameter]</code> 传参</td><td>props（组件的输入）</td></tr>
+  <tr><td>组件字段 + 事件回调</td><td><code>useState</code> + 事件处理器</td></tr>
+  <tr><td><code>OnInitializedAsync</code> 拉数据</td><td><code>useEffect</code> 副作用</td></tr>
+</table>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  React 不是框架（框架管路由/状态管理/依赖注入），是<strong>库</strong>——只解决"界面怎么声明"。其余（构建、请求、测试）靠生态里的其他工具——这正是你这四课学到的生态全景。
+</div>
+
+<h2>组件 + JSX：在 JS 里写 HTML</h2>
+
+<pre><code><span class="c">// App.tsx —— 一个组件就是一个函数，返回 JSX</span>
+<span class="k">function</span> App() {
+  <span class="k">return</span> (
+    <span class="t">&lt;div className="app"&gt;</span>          <span class="c">// JSX：看起来像 HTML，其实是 JS 表达式</span>
+      <span class="t">&lt;h1&gt;</span>Todo 清单<span class="t">&lt;/h1&gt;</span>
+      <span class="t">&lt;button&gt;</span>添加<span class="t">&lt;/button&gt;</span>
+    <span class="t">&lt;/div&gt;</span>
+  );
+}</code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>JSX</strong>：在 JS 文件里写 HTML 标记的语法（<code>.tsx</code> 后缀 = 含 JSX 的 TS）。<code>{大括号}</code> 里可以嵌入任何 JS 表达式。C# 对照：Razor 是"HTML 里混 C#"（<code>@</code> 语法）；JSX 反过来——<strong>JS 里混 HTML</strong>。
+</div>
+
+<h2>useState：组件内部状态</h2>
+
+<pre><code><span class="k">const</span> [todos, setTodos] = useState&lt;<span class="t">Todo</span>[]&gt;([]);  <span class="c">// 状态：待办列表</span>
+<span class="k">const</span> [title, setTitle] = useState(<span class="s">""</span>);       <span class="c">// 状态：输入框文字</span>
+
+<span class="c">// 读取：todos（值）   更新：setTodos(新值)</span>
+<span class="c">// 状态变了 → React 自动重新渲染组件（函数重新执行）</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>useState</strong>：组件自己的可变状态。返回 <code>[值, 更新函数]</code> 两个东西。<strong>关键机制</strong>：调用更新函数 → React 重新执行组件函数 → 界面跟着变。你<strong>不直接改</strong> <code>todos</code>（用 <code>[...todos, todo]</code> 造新数组）——这是 React 的不变性规则（类似 C# 的 immutable 风格）。
+</div>
+
+<h2>useEffect：副作用（拉数据）</h2>
+
+<pre><code><span class="k">useEffect</span>(() =&gt; {
+  fetch(<span class="s">"http://localhost:3000/todos"</span>)   <span class="c">// 第八课的 fetch</span>
+    .then((res) =&gt; res.json())
+    .then((data) =&gt; setTodos(data));
+}, []);  <span class="c">// 空数组 = 只在组件挂载时执行一次</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>useEffect</strong>：在渲染之外做"副作用"（网络请求、订阅、计时器）。第二个参数是依赖数组：<code>[]</code> = 只在挂载时跑一次（≈ Blazor 的 <code>OnInitializedAsync</code>）；不传 = 每次渲染都跑；传变量 = 变量变时才跑。
+</div>
+
+<h2>事件 + 列表渲染</h2>
+
+<pre><code><span class="c">// 事件：onClick / onChange 传处理器函数（第六课函数类型）</span>
+&lt;input
+  value={title}
+  onChange={(e) =&gt; setTitle(e.target.value)}   <span class="c">// 打字 → 更新状态 → 重渲染</span>
+/&gt;
+&lt;button onClick={addTodo}&gt;添加&lt;/button&gt;
+
+<span class="c">// 列表渲染：map 生成元素，key 帮 React 区分每一项</span>
+{todos.map((t) =&gt; (
+  &lt;li key={t.id}&gt;{t.done ? <span class="s">"✅"</span> : <span class="s">"⬜"</span>} {t.title}&lt;/li&gt;
+))}</code></pre>
+
+<h2>全栈闭环：这课你亲眼看到的事</h2>
+
+<pre><code>你在浏览器打开 localhost:5173（React dev server）
+  → App 组件挂载
+  → useEffect 里 fetch("http://localhost:3000/todos")
+  → 请求到你的 Todo API（第十课写的）
+  → API 返回 JSON 列表
+  → setTodos(数据) → React 重新渲染 → 页面出现待办列表
+
+你输入文字点"添加"
+  → addTodo 里 fetch POST
+  → API 创建待办（id 自动生成）
+  → setTodos([...todos, todo]) → 列表更新</code></pre>
+
+<div class="warn">
+  <strong>真实遇到的坑：CORS</strong>。React dev server（localhost:5173）请求 API（localhost:3000）——<em>跨域</em>。浏览器安全策略会拦截（"No 'Access-Control-Allow-Origin' header"）。解决办法：API 响应加 <code>Access-Control-Allow-Origin</code> 头（我已加好，见 Todo API 的 server.ts）。全栈开发第一天就会碰到它。
+</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里跑全栈（10 分钟，两个终端）</div>
+  <p>项目已就绪：<code>todo-api/</code>（后端，已加 CORS）+ <code>todo-web/</code>（React 前端）。</p>
+  <ol>
+    <li><strong>终端 1</strong>：<code>cd code/todo-api && npm start</code>（后端起来，端口 3000）</li>
+    <li><strong>终端 2</strong>：<code>cd code/todo-web && npm run dev</code>（前端起来，端口 5173）</li>
+    <li>浏览器打开 localhost:5173——看到 Todo 清单。输入文字点"添加"，数据进了后端（<code>curl localhost:3000/todos</code> 能看到它！）。<strong>这就是全栈闭环。</strong></li>
+    <li><strong>挑战 1</strong>：打开 Todo API 的 server.ts，删掉 <code>Access-Control-Allow-Origin</code> 那行，刷新前端——看浏览器报 CORS 错误。再加回去。亲手踩一次这个坑。</li>
+    <li><strong>挑战 2</strong>：给前端加"删除"按钮（调 PATCH 或 DELETE，用上第十课挑战 1 写的端点）——试着给 <code>Todo</code> 加 done 切换。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="React 里 setTodos(新值) 调用后会发生什么？">
+  <h3>Q1 · state 机制</h3>
+  <ul class="options">
+    <li data-correct="true">组件重新渲染</li>
+    <li>整个页面刷新</li>
+    <li>浏览器重新加载</li>
+    <li>需要手动刷新</li>
+  </ul>
+  <div class="explain">更新函数被调用 → React 重新执行组件函数 → 界面自动更新（UI = f(state)）。React 只更新需要变的部分，不是整页刷新。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="useEffect(..., []) 的空数组 [] 表示？">
+  <h3>Q2 · 副作用时机</h3>
+  <ul class="options">
+    <li data-correct="true">只在挂载时执行一次</li>
+    <li>每次渲染都执行</li>
+    <li>永远不会执行</li>
+    <li>每秒执行一次</li>
+  </ul>
+  <div class="explain">依赖数组为空 = 没有依赖 → 只在组件挂载时跑一次（拉数据的标准写法）。≈ Blazor 的 OnInitializedAsync。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="列表渲染里 key={t.id} 的作用是？">
+  <h3>Q3 · key</h3>
+  <ul class="options">
+    <li data-correct="true">帮助 React 区分列表项</li>
+    <li>给元素添加样式</li>
+    <li>控制列表的排序</li>
+    <li>绑定点击事件</li>
+  </ul>
+  <div class="explain">key 是列表项的唯一标识——React 靠它知道"哪个项更新/删除/新增"（相当于 C# 里对象的 Id）。用数组下标当 key 是反模式（顺序变就错乱）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="前端 (5173) fetch 后端 (3000) 被拦截的原因？">
+  <h3>Q4 · CORS</h3>
+  <ul class="options">
+    <li data-correct="true">跨域安全限制</li>
+    <li>API 地址写错了</li>
+    <li>React 不支持 fetch</li>
+    <li>后端端口被占用</li>
+  </ul>
+  <div class="explain">不同端口 = 不同源。浏览器安全策略拦截跨域请求，除非后端响应带 Access-Control-Allow-Origin 头。全栈开发必踩的坑。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://react.dev/learn">React 官方学习路径</a> — 交互式学习，写应用的下一阶段从这里开始。</li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">MDN: CORS</a> — 跨域机制的权威解释。</li>
+  <li><a href="https://vite.dev/guide/">Vite 指南</a> — 项目脚手架（npm create vite 选的 react 模板就是它）。</li>
+</ul>
+
+<h2>生态课完结 🎓 + 预告</h2>
+
+<p>四层生态全部走完：npm/npx（装包）→ Node（运行）→ Vite（构建）→ React（界面）。现在你看任何现代前端项目，能认出每一层在干什么。</p>
+
+<p><strong>最后一件事</strong>：你之前要的<strong>回调顺序小实验</strong>——我把它做成 <code>code/src/event-loop-lab.ts</code>：混合宏任务/微任务/async/setTimeout 的预测题，你先写下预测再运行验证。事件循环的认知用它收尾。</p>
+
+<p class="lesson-nav">
+  <a href="0014-vite.html"><span class="lbl">上一课</span>Vite 构建工具</a>
+  <span class="next"><span class="lbl">课程结束</span>🎓 全栈能力达成</span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>React 的"UI = f(state)"心智模型需要一点时间适应——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0015 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

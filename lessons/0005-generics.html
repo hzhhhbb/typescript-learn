@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 5 课：泛型</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0005 · 类型系统</div>
+  <h1>泛型：熟悉的名字，陌生的底层</h1>
+  <p class="lesson-summary">你闭着眼睛都会写 C# 的 <code>List&lt;T&gt;</code>。但 TS 的泛型有一个本质差异：<strong>它只在编译期存在，运行时完全消失</strong>。这课帮你建立正确的 TS 泛型心智模型，语法上你几乎零学习成本。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>语法对照：几乎一样</h2>
+
+<div class="code-compare">
+  <div class="side csharp">
+    <div class="lang">C# · 你的已知</div>
+<pre><code><span class="k">T</span> Identity&lt;<span class="t">T</span>&gt;(<span class="t">T</span> value) {
+  <span class="k">return</span> value;
+}
+
+<span class="k">class</span> Box&lt;<span class="t">T</span>&gt; {
+  <span class="k">public</span> <span class="t">T</span> Value { <span class="k">get</span>; }
+}</code></pre>
+  </div>
+  <div class="side typescript">
+    <div class="lang">TypeScript · 新的</div>
+<pre><code><span class="k">function</span> identity&lt;<span class="t">T</span>&gt;(value: <span class="t">T</span>): <span class="t">T</span> {
+  <span class="k">return</span> value;
+}
+
+<span class="k">class</span> Box&lt;<span class="t">T</span>&gt; {
+  <span class="k">constructor</span>(<span class="k">public</span> value: <span class="t">T</span>) {}
+}</code></pre>
+  </div>
+</div>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>TypeScript（新的）</th></tr>
+  <tr><td><code>Box&lt;int&gt; b = <span class="k">new</span>();</code></td><td><code><span class="k">const</span> b = <span class="k">new</span> Box&lt;<span class="t">number</span>&gt;(<span class="n">42</span>);</code></td></tr>
+</table>
+
+<p>调用时类型参数自动推断，不用手写：</p>
+
+<pre><code><span class="k">const</span> n = identity(<span class="n">42</span>);    <span class="c">// T 自动推断为 number</span>
+<span class="k">const</span> s = identity(<span class="s">"hi"</span>);  <span class="c">// T 自动推断为 string</span></code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  类型推断 ≈ C# 泛型方法调用时的推断（<code>Identity(42)</code> 不用写 <code>&lt;int&gt;</code>）。行为一致，无需多学。
+</div>
+
+<h2>最重要的差异：泛型在运行时消失</h2>
+
+<p>这是本课的核心，请刻进脑子：</p>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>TS 泛型的类型擦除</strong>：<code>Box&lt;number&gt;</code> 和 <code>Box&lt;string&gt;</code> 编译后是<em>完全相同的代码</em>——就是一个普通对象。对比 C#：<code>List&lt;int&gt;</code> 和 <code>List&lt;string&gt;</code> 是运行时不同的类型（JIT 特化、有泛型元数据）。TS 没有这些，泛型纯粹是编译期文档和检查。
+</div>
+
+<pre><code><span class="c">// 源码</span>
+<span class="k">const</span> numBox: <span class="t">Box</span>&lt;<span class="t">number</span>&gt; = { value: <span class="n">42</span> };
+<span class="k">const</span> strBox: <span class="t">Box</span>&lt;<span class="t">string</span>&gt; = { value: <span class="s">"hi"</span> };
+
+<span class="c">// 编译后（类型擦除）</span>
+<span class="k">const</span> numBox = { value: <span class="n">42</span> };
+<span class="k">const</span> strBox = { value: <span class="s">"hi"</span> };</code></pre>
+
+<p>三个直接后果：</p>
+
+<ul>
+  <li><strong>不能 <code>instanceof T</code></strong>：T 在运行时不存在，没法判断。C# 里 <code>typeof(T)</code> 合法，TS 里没有对应物。</li>
+  <li><strong>类型参数只用于编译期检查</strong>：<code>numBox.value + 1</code> 能通过编译是因为类型系统知道 value 是 number；运行时它就是普通属性访问。</li>
+  <li><strong>运行时"类型区分"要靠值</strong>：想区分不同类型，用可辨识联合的 <code>kind</code> 字段（第三课学的），而不是泛型。</li>
+</ul>
+
+<h2>泛型约束：extends（≈ where T : ...）</h2>
+
+<pre><code><span class="c">// C#:  T Longest&lt;T&gt;(T a, T b) where T : IComparable</span>
+<span class="k">function</span> longest&lt;<span class="t">T</span> <span class="k">extends</span> { length: <span class="t">number</span> }&gt;(a: <span class="t">T</span>, b: <span class="t">T</span>): <span class="t">T</span> {
+  <span class="k">return</span> a.length &gt;= b.length ? a : b;
+}
+
+console.log(longest(<span class="s">"abc"</span>, <span class="s">"xy"</span>));        <span class="c">// "abc" —— string 有 length</span>
+console.log(longest([<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>], [<span class="n">4</span>, <span class="n">5</span>])); <span class="c">// [1,2,3] —— 数组有 length</span>
+longest(<span class="n">1</span>, <span class="n">2</span>);                       <span class="bad">// ✗ TS2345: number 没有 length</span></code></pre>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc
+src/_err.ts:4:9 - error TS2345: Argument of type 'number' is not assignable
+to parameter of type '{ length: number; }'.</code></pre>
+
+<table class="compare">
+  <tr><th>C# 约束</th><th>TS 等价</th></tr>
+  <tr><td><code>where T : IComparable</code></td><td><code>&lt;T extends { compareTo(...): number }&gt;</code>（结构类型：有这形状就行）</td></tr>
+  <tr><td><code>where T : class</code></td><td><code>&lt;T extends object&gt;</code></td></tr>
+  <tr><td><code>where T : new()</code></td><td><code>&lt;T extends new (...args: any[]) =&gt; any&gt;</code>（构造签名）</td></tr>
+  <tr><td><code>where T : notnull</code></td><td>默认就是（strict 下 <code>&lt;T&gt;</code> 可包含 null，需要时加 <code>&lt;T&gt;</code> 后用联合约束）</td></tr>
+</table>
+
+<div class="note">
+  注意 TS 的约束是<strong>结构性的</strong>（第二课）：T 不需要"实现"某个接口，只要有相应成员即可。所以 <code>"abc"</code> 和 <code>[1,2,3]</code> 都能满足 <code>{ length: number }</code>。
+</div>
+
+<h2>泛型 + 收窄：经典组合</h2>
+
+<pre><code><span class="k">class</span> <span class="t">Stack</span>&lt;<span class="t">T</span>&gt; {
+  <span class="k">private</span> items: <span class="t">T</span>[] = [];
+  push(item: <span class="t">T</span>): <span class="t">void</span> { <span class="k">this</span>.items.push(item); }
+  pop(): <span class="t">T</span> | <span class="k">undefined</span> {  <span class="c">// 数组可能为空 → 第四课技能</span>
+    <span class="k">return</span> <span class="k">this</span>.items.pop();
+  }
+}
+
+<span class="k">const</span> stack = <span class="k">new</span> <span class="t">Stack</span>&lt;<span class="t">number</span>&gt;();
+<span class="k">const</span> top = stack.pop();  <span class="c">// number | undefined —— 必须先收窄才能用</span>
+<span class="k">if</span> (top !== <span class="k">undefined</span>) {
+  console.log(top + <span class="n">1</span>);  <span class="c">// ✓ 收窄为 number</span>
+}</code></pre>
+
+<h2>预告：infer（C# 完全没有的东西）</h2>
+
+<p>TS 泛型的终点是"类型编程"。下一个里程碑是 <code>infer</code>——从类型中<strong>提取</strong>子类型：</p>
+
+<pre><code><span class="k">type</span> <span class="t">ElementType</span>&lt;<span class="t">T</span>&gt; = <span class="t">T</span> <span class="k">extends</span> (<span class="k">infer</span> <span class="t">U</span>)[] ? <span class="t">U</span> : <span class="k">never</span>;
+
+<span class="k">type</span> <span class="t">A</span> = <span class="t">ElementType</span>&lt;<span class="t">string</span>[]&gt;;  <span class="c">// string</span>
+<span class="k">type</span> <span class="t">B</span> = <span class="t">ElementType</span>&lt;<span class="t">number</span>[]&gt;;  <span class="c">// number</span></code></pre>
+
+<p>现在不用会写，只需要知道它存在。0012 课（映射类型与条件类型）再展开。</p>
+
+<h2>动手练习</h2>
+
+<div class="note">
+  先解释一个你打开示例文件时会看到的行：<code>src/generics.ts</code> 顶部有一行 <code>export {};</code>——这是为了让文件"升级"成<strong>模块</strong>（有自己的作用域），避免和其他示例文件互相冲突。它只是告诉编译器"这是个模块"，不导出任何东西。<strong>第 9 课（模块系统）会完整讲解</strong>——现在你只需要知道它存在，不用管它。
+</div>
+
+<div class="exercise">
+  <div class="ex-title">在 code/ 里验证（5 分钟）</div>
+  <p>我在 <code>code/src/generics.ts</code> 里写好了全部示例（已验证）。做三件事：</p>
+  <ol>
+    <li>运行 <code>npx tsc && node dist/generics.js</code>，看输出（<code>number string</code>、Stack 的 <code>2 / 1 / undefined</code>、longest 的结果）。</li>
+    <li><strong>挑战 1</strong>：取消 <code>longest(1, 2);</code> 的注释，编译看 TS2345（number 不满足 length 约束），再注释回去。</li>
+    <li><strong>挑战 2</strong>：给 <code>identity</code> 换个应用——写一个泛型函数 <code>firstElement&lt;T&gt;(arr: T[]): T | undefined</code>，对 <code>[10, 20, 30]</code> 和 <code>["a", "b"]</code> 各调用一次。在注释里写下两个返回值的类型，再运行验证。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="identity&lt;T&gt;(value: T): T 调用 identity(42)，返回值的类型推断为？">
+  <h3>Q1 · 泛型推断</h3>
+  <ul class="options">
+    <li data-correct="true">number</li>
+    <li>any</li>
+    <li>Object</li>
+    <li>unknown</li>
+  </ul>
+  <div class="explain">调用时从实参推断：<code>identity(42)</code> 的 T = number。和 C# 泛型方法推断一样，不用手写类型参数。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Box&lt;number&gt; 和 Box&lt;string&gt; 在运行时是什么关系？">
+  <h3>Q2 · 类型擦除</h3>
+  <ul class="options">
+    <li data-correct="true">相同代码，无类型区分</li>
+    <li>两个不同的类</li>
+    <li>编译报错不能共存</li>
+    <li>运行时检查值类型</li>
+  </ul>
+  <div class="explain">TS 泛型编译后完全擦除，<code>Box&lt;number&gt;</code> 和 <code>Box&lt;string&gt;</code> 是同一段代码。对比 C#：List&lt;int&gt; 与 List&lt;string&gt; 是运行时不同类型。这是两者最本质的差异。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="&lt;T extends { length: number }&gt; 这个约束对应 C# 的哪种写法？">
+  <h3>Q3 · 泛型约束</h3>
+  <ul class="options">
+    <li data-correct="true">where T : 接口类型</li>
+    <li>where T : class</li>
+    <li>where T : struct</li>
+    <li>where T : new()</li>
+  </ul>
+  <div class="explain"><code>extends { length: number }</code> ≈ <code>where T : IHasLength</code>——但 TS 是结构约束：不需要实现任何接口，有 length 成员即可（所以 string 和数组都满足）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="约束 &lt;T extends { length: number }&gt; 的用途是什么？">
+  <h3>Q4 · 约束的意义</h3>
+  <ul class="options">
+    <li data-correct="true">限制 T 必须具有 length 成员</li>
+    <li>让 T 变成 any 类型</li>
+    <li>给 T 添加运行时信息</li>
+    <li>加快编译速度</li>
+  </ul>
+  <div class="explain">约束让函数体内可以安全使用 <code>a.length</code>，且调用时违反约束的实参会报 TS2345。它只有编译期意义，不产生任何运行时代码。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/2/generics.html">Generics（官方文档）</a> — 泛型权威参考，本课内容出处。</li>
+  <li><a href="https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-oop.html">TypeScript for Java/C# Programmers（官方）</a> — 泛型一节为 C# 开发者写了专门说明。</li>
+  <li><a href="https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/generics">C# 泛型文档（Microsoft Learn）</a> — 反向对照用，确认 C# 侧的模型。</li>
+  <li><a href="../reference/glossary.html">术语表</a> — 新增 generic、type constraint、infer、type parameter 词条。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>泛型是"类型编程"的入口。下一课讲<strong>函数与对象类型</strong>——回调函数怎么写类型、可选参数、剩余参数、函数重载、<code>this</code> 类型。这是全栈代码里出现频率最高的类型知识（回调、事件、API 层），也是 C# 委托/方法的 TS 对应物。</p>
+
+<p class="lesson-nav">
+  <a href="0004-null-undefined-strict-null-checks.html"><span class="lbl">上一课</span>null、undefined 与严格空检查</a>
+  <span class="next"><a href="0006-functions-object-types.html"><span class="lbl">下一课</span>函数与对象类型</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>泛型的运行时擦除是 C# 开发者最需要建立的新心智——有任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0005 · <a href="../reference/glossary.html">术语表</a> · <a href="../MISSION.md">教学使命</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
