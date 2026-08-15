@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 19 课：tRPC 端到端类型安全</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0019 · 差异化 · 端到端类型安全（完结）</div>
+  <h1>tRPC：端到端类型安全</h1>
+  <p class="lesson-summary">最"TS 特色"的概念：没有 REST 的 URL/序列化边界，前后端共享 router 类型后，<strong>调后端函数就像调本地函数</strong>——改后端签名，前端编译期报错。这是你 Monorepo 共享类型思想的极致。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>问题：REST 的类型断层</h2>
+
+<p>你熟悉的 REST/HTTP 世界有个类型断层：</p>
+
+<pre><code><span class="c">// 后端定义了类型安全的路由处理</span>
+GET /api/users/:id → User
+
+<span class="c">// 前端却是裸字符串 + 手写类型——两边各写一份，靠约定同步</span>
+<span class="k">const</span> res = <span class="k">await</span> fetch(<span class="s">`/api/users/${id}`</span>);
+<span class="k">const</span> user = <span class="k">await</span> res.json() <span class="k">as</span> <span class="t">User</span>;  <span class="c">// as 断言：相信约定（第 2 课）</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>tRPC</strong>：前后端<strong>共享同一份 router 定义</strong>（类型即契约）——后端实现它，前端从它推导类型。<strong>没有 URL、没有手写接口定义、没有序列化边界</strong>：类型是唯一的 API 契约。
+</div>
+
+<h2>核心：router / procedure / query / mutation</h2>
+
+<pre><code><span class="c">// router.ts —— 前后端共享的 API 定义（一个文件）</span>
+<span class="k">import</span> { initTRPC } <span class="k">from</span> <span class="s">"@trpc/server"</span>;
+<span class="k">import</span> { z } <span class="k">from</span> <span class="s">"zod"</span>;
+
+<span class="k">const</span> t = initTRPC.create();
+
+<span class="k">export const</span> appRouter = t.router({
+  <span class="c">// query：读操作（≈ GET）</span>
+  getTodos: t.procedure.query(() =&gt; todos),
+
+  <span class="c">// mutation：写操作（≈ POST/PATCH），input 用 Zod 校验（第 18 课）</span>
+  addTodo: t.procedure
+    .input(z.object({ title: z.string().min(<span class="n">1</span>) }))
+    .mutation(({ input }) =&gt; { <span class="k">return</span> createTodo(input); }),
+
+  toggleTodo: t.procedure
+    .input(z.number())
+    .mutation(({ input }) =&gt; { <span class="k">return</span> toggle(input); }),
+});
+
+<span class="c">// 导出类型——前端只 import 这个（类型零运行时成本，第 9 课）</span>
+<span class="k">export type</span> <span class="t">AppRouter</span> = <span class="k">typeof</span> appRouter;</code></pre>
+
+<table class="compare">
+  <tr><th>tRPC</th><th>REST（你的已知）</th></tr>
+  <tr><td><code>t.procedure.query</code></td><td><code>GET /endpoint</code></td></tr>
+  <tr><td><code>t.procedure.mutation</code></td><td><code>POST/PATCH/DELETE /endpoint</code></td></tr>
+  <tr><td><code>.input(zodSchema)</code></td><td>请求体校验（手写）</td></tr>
+  <tr><td>类型：共享 AppRouter 自动推导</td><td>手写 DTO + as 断言 + 维护文档</td></tr>
+</table>
+
+<h2>端到端类型安全（实测演示）</h2>
+
+<pre><code><span class="c">// client.ts —— 前端调用：像调本地函数</span>
+<span class="k">import</span> { createTRPCProxyClient, httpBatchLink } <span class="k">from</span> <span class="s">"@trpc/client"</span>;
+<span class="k">import type</span> { <span class="t">AppRouter</span> } <span class="k">from</span> <span class="s">"./router"</span>;  <span class="c">// 只 import 类型！</span>
+
+<span class="k">const</span> trpc = createTRPCProxyClient&lt;<span class="t">AppRouter</span>&gt;({
+  links: [httpBatchLink({ url: <span class="s">"http://localhost:3003"</span> })],
+});
+
+<span class="k">const</span> list = <span class="k">await</span> trpc.getTodos.query();        <span class="c">// 返回类型自动推导</span>
+<span class="k">const</span> added = <span class="k">await</span> trpc.addTodo.mutate({ title: <span class="s">"端到端类型安全"</span> });</code></pre>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsx src/client.ts
+📋 列表: [ { id: 1, title: '学习 tRPC', done: false } ]
+➕ 添加: { id: 2, title: '端到端类型安全', done: false }
+🔄 切换: { id: 1, title: '学习 tRPC', done: true }</code></pre>
+
+<h3>铁证：改 input 类型 → 前端编译期报错</h3>
+
+<p>把 client 里的 <code>{ title: "..." }</code> 改成 <code>{ title: 42 }</code>：</p>
+
+<pre class="term"><code><span class="dollar">$</span> npx tsc --noEmit
+src/client.ts(16,45): error TS2322: Type 'number' is not assignable to type 'string'.
+<span class="out">——前端在编译期就知道后端要 string。没有任何运行时检查参与。</span></code></pre>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>端到端（end-to-end）</strong>：类型安全从后端数据库一路穿到前端组件。改后端 <code>addTodo</code> 的 input 或返回类型 → 前端所有用到它的地方<strong>编译期</strong>报错。对比 REST：改了后端，前端要等运行时才发现（或者永远不发现）。
+</div>
+
+<h2>React 集成（完整应用里的样子）</h2>
+
+<pre><code><span class="c">// App.tsx —— @trpc/react-query 的 hooks（≈ 自动的数据获取层）</span>
+<span class="k">const</span> { data: todos } = trpc.getTodos.useQuery();         <span class="c">// 自动类型 + 缓存</span>
+<span class="k">const</span> add = trpc.addTodo.useMutation();                  <span class="c">// 变更 hook</span>
+
+<span class="c">// 调用时类型检查、完成后自动失效缓存：</span>
+add.mutate({ title: newTitle }, { onSuccess: () =&gt; utils.getTodos.invalidate() });</code></pre>
+
+<div class="note">这是 tRPC + React Query 的组合：useQuery 自动管理数据获取/缓存/重试，类型全部自动。配合 SSE/WebSocket 可以做成实时应用（第 15 课看板 + tRPC = 常见的 agent 平台组合）。</div>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/trpc-demo/ 里验证（5 分钟）</div>
+  <ol>
+    <li>终端 1：<code>npm run server</code>；终端 2：<code>npm run client</code>——看输出（我已验证）。</li>
+    <li><strong>挑战 1（核心体验）</strong>：把 client 里 <code>addTodo.mutate({ title: ... })</code> 改成 <code>mutate({ title: 42 })</code>，跑 <code>npx tsc --noEmit</code>——看编译期报错。再改回来。这就是端到端类型安全的全部意义。</li>
+    <li><strong>挑战 2</strong>：在 router.ts 加一个 <code>deleteTodo: t.procedure.input(z.number()).mutation(...)</code>——client 立刻能用（<code>trpc.deleteTodo.mutate(1)</code>），类型自动出现。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="tRPC 的核心价值是？">
+  <h3>Q1 · tRPC 定位</h3>
+  <ul class="options">
+    <li data-correct="true">端到端类型安全</li>
+    <li>更快的打包速度</li>
+    <li>自动数据库迁移</li>
+    <li>内置用户认证</li>
+  </ul>
+  <div class="explain">tRPC 让前后端共享同一份类型定义——类型是唯一的 API 契约，改后端前端编译期感知。打包/数据库/认证都不是它的职责。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="前端怎么获得后端 API 的类型？">
+  <h3>Q2 · 类型来源</h3>
+  <ul class="options">
+    <li data-correct="true">import 共享的 router 类型</li>
+    <li>手写接口定义文件</li>
+    <li>运行时反射获取</li>
+    <li>代码生成工具生成</li>
+  </ul>
+  <div class="explain">client 用 <code>import type { AppRouter }</code> 从共享 router 推导——零运行时成本（第 9 课 import type）。没有手写 DTO、没有代码生成。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="procedure 的 input 校验用什么？">
+  <h3>Q3 · 输入校验</h3>
+  <ul class="options">
+    <li data-correct="true">Zod schema</li>
+    <li>手写 if 判断</li>
+    <li>JSON Schema 文件</li>
+    <li>数据库约束</li>
+  </ul>
+  <div class="explain">tRPC 与 Zod 深度集成：.input(z.object({...})) 同时提供运行时校验（第 18 课）和编译期类型。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="后端改了 router 签名，前端会发生什么？">
+  <h3>Q4 · 变更传播</h3>
+  <ul class="options">
+    <li data-correct="true">编译期报错提醒</li>
+    <li>运行时才报错</li>
+    <li>自动忽略不匹配</li>
+    <li>整个程序崩溃</li>
+  </ul>
+  <div class="explain">前后端共享类型 → 后端签名一变，前端所有使用点编译期报错——这是端到端类型安全最直接的价值（对比 REST 的运行时才发现）。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://trpc.io/docs">tRPC 官方文档</a> — quickstart、React 集成、与 Express/NestJS 配合。</li>
+  <li><a href="https://trpc.io/docs/client/react">tRPC + React Query 指南</a> — useQuery/useMutation 的完整用法。</li>
+  <li><a href="https://tanstack.com/query/latest">TanStack Query 文档</a> — tRPC 底层的数据获取库。</li>
+</ul>
+
+<h2>差异化课程完结 🎓</h2>
+
+<p>四课差异化知识全部完成。你新增的武器库：</p>
+
+<ul>
+  <li><strong>0016</strong>：worker_threads（独立 V8 + 消息传递）+ 流（背压）——翻越事件循环红线</li>
+  <li><strong>0017</strong>：NestJS（装饰器驱动的 DI、管道校验、design:paramtypes 坑）</li>
+  <li><strong>0018</strong>：Prisma（schema-first 类型安全 ORM）+ Zod（校验与类型合一）</li>
+  <li><strong>0019</strong>：tRPC（端到端类型安全——TS 生态的独门武器）</li>
+</ul>
+
+<p>现在你的完整能力：<strong>语言级类型安全 + 生态四层认知 + 并发模型 + 企业级框架 + 类型安全数据层 + 端到端类型安全</strong>。去做你的 agent 平台吧——这套栈（NestJS/Express + Prisma + Zod + tRPC/SSE + React）正是当前 TS 生态做生产级应用的标准组合。</p>
+
+<p class="lesson-nav">
+  <a href="0018-prisma-zod.html"><span class="lbl">上一课</span>Prisma + Zod 数据层</a>
+  <span class="next"><span class="lbl">课程结束</span>🎓 去构建你的 agent 平台</span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>tRPC 的"类型即契约"需要一点思维转变——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0019 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

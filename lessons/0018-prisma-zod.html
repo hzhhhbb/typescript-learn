@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 18 课：数据层 Prisma + Zod</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0018 · 差异化 · 数据层</div>
+  <h1>数据层：Prisma（类型安全 ORM）+ Zod（校验与类型合一）</h1>
+  <p class="lesson-summary">数据库和校验你都熟——这课讲 TS 生态的<strong>差异化写法</strong>：Prisma 的 schema-first（vs EF 的 code-first）、全类型安全的查询链；Zod 的一个 schema 同时产出运行时校验和编译期类型（C# 里三样东西的工作）。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>Prisma：schema-first 的类型安全 ORM</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>Prisma</strong>：Node 生态最流行的 ORM。核心差异——<strong>schema-first</strong>：先写一个独立的 <code>schema.prisma</code> 描述数据模型，Prisma 生成<strong>类型安全的查询客户端</strong>和数据库迁移。
+</div>
+
+<table class="compare">
+  <tr><th>Prisma</th><th>EF Core（你的已知）</th></tr>
+  <tr><td><strong>schema-first</strong>：独立 schema.prisma 定义模型</td><td>code-first：写模型类，EF 推断数据库</td></tr>
+  <tr><td>生成的客户端：<code>prisma.todo.create(...)</code></td><td><code>db.Todos.Add(...)</code> + DbContext</td></tr>
+  <tr><td>迁移：<code>prisma migrate dev</code></td><td><code>dotnet ef migrations add</code></td></tr>
+  <tr><td>查询<strong>全程类型安全</strong>（条件、字段编译期检查）</td><td>LINQ 编译期检查（类似）</td></tr>
+</table>
+
+<h2>schema.prisma：模型就是真相</h2>
+
+<pre><code><span class="c">// prisma/schema.prisma —— 唯一的模型定义（vs EF 分散在各实体类）</span>
+datasource db {
+  provider = <span class="s">"sqlite"</span>   <span class="c">// 开发用 SQLite 零配置；生产换 postgresql 改一行</span>
+  url      = <span class="s">"file:./dev.db"</span>
+}
+
+<span class="k">model</span> <span class="t">Todo</span> {
+  id        <span class="t">Int</span>      <span class="k">@id</span> <span class="k">@default</span>(autoincrement())
+  title     <span class="t">String</span>
+  done      <span class="t">Boolean</span>  <span class="k">@default</span>(false)
+  createdAt <span class="t">DateTime</span> <span class="k">@default</span>(now())
+}</code></pre>
+
+<pre class="term"><code><span class="dollar">$</span> npx prisma migrate dev --name init
+<span class="out">✔ Generated Prisma Client to ./node_modules/@prisma/client（55ms）
+Your database is now in sync with your schema.</span></code></pre>
+
+<p>一次命令做了三件事：① 创建 SQLite 数据库（<code>dev.db</code>）② 建表 ③ 生成类型安全客户端。</p>
+
+<h2>类型安全的查询链（差异化核心）</h2>
+
+<pre><code><span class="k">const</span> prisma = <span class="k">new</span> <span class="t">PrismaClient</span>();
+
+<span class="c">// 创建：字段拼错 / 类型不对 → 编译期就报错</span>
+<span class="k">const</span> todo = <span class="k">await</span> prisma.todo.create({
+  data: { title: <span class="s">"学习 Prisma"</span> },
+});
+
+<span class="c">// 查询：条件也是类型安全的（where 的字段名/运算符编译期检查）</span>
+<span class="k">const</span> pending = <span class="k">await</span> prisma.todo.findMany({
+  where: { done: <span class="k">false</span> },
+  orderBy: { createdAt: <span class="s">"desc"</span> },
+});</code></pre>
+
+<div class="known">
+  <span class="tag">你已经知道</span>
+  概念上和 LINQ + DbContext 一致：强类型查询、迁移管理。差异：<strong>schema 集中定义</strong>（vs 分散实体类）、客户端是<strong>生成的代码</strong>（改了 schema 重新 generate，类型立即同步——类似 EF 的编译时模型但更彻底）。
+</div>
+
+<h2>Zod：一个 schema 搞定校验 + 类型</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>Zod</strong>：schema 定义与校验库。差异化在于——<strong>一个 schema 同时产出运行时校验和编译期类型</strong>：
+</div>
+
+<pre><code><span class="k">import</span> { z } <span class="k">from</span> <span class="s">"zod"</span>;
+
+<span class="c">// 定义 schema（这是唯一的真相）</span>
+<span class="k">const</span> <span class="t">TodoInput</span> = z.object({
+  title: z.string().min(<span class="n">1</span>, <span class="s">"标题不能为空"</span>).max(<span class="n">100</span>),
+});
+
+<span class="c">// ① 编译期类型：直接从 schema 推导（第 11 课 infer 的实战）</span>
+<span class="k">type</span> <span class="t">TodoInput</span> = z.infer&lt;<span class="k">typeof</span> <span class="t">TodoInput</span>&gt;;  <span class="c">// { title: string }</span>
+
+<span class="c">// ② 运行时校验：类型系统管不到网络输入（第 10 课）</span>
+<span class="k">const</span> parsed = <span class="t">TodoInput</span>.parse({ title: <span class="s">""</span> });  <span class="c">// 抛 ZodError: 标题不能为空</span></code></pre>
+
+<table class="compare">
+  <tr><th>C#（你的已知）</th><th>Zod（新的）</th></tr>
+  <tr><td><code>DataAnnotations</code> 校验</td><td>schema 内联校验规则（min/max/email…）</td></tr>
+  <tr><td>手写 DTO 类 + <code>System.Text.Json</code> 序列化</td><td><code>z.infer</code> 自动推导类型</td></tr>
+  <tr><td>三样东西（校验属性 + DTO + 映射）</td><td><strong>一个 schema 全包</strong></td></tr>
+</table>
+
+<h2>组合：Zod 校验边界，Prisma 落库</h2>
+
+<p>这是 TS 后端的标准分层（呼应第 10 课"类型管不到网络输入"的解法）：</p>
+
+<pre><code><span class="c">// API 边界：Zod 校验（拒绝非法输入）→ Prisma 查询（类型安全落库）</span>
+<span class="k">async function</span> createTodo(raw: <span class="t">unknown</span>): <span class="t">Promise</span>&lt;<span class="t">Todo</span>&gt; {
+  <span class="k">const</span> parsed = <span class="t">TodoInput</span>.parse(raw);        <span class="c">// ① 运行时校验（会抛）</span>
+  <span class="k">return</span> prisma.todo.create({ data: parsed }); <span class="c">// ② 类型安全写入</span>
+}</code></pre>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/prisma-zod-demo/ 里验证（5 分钟）</div>
+  <ol>
+    <li><code>npm start</code>——看输出：Zod 校验通过 → Prisma 创建 → 查询 → 校验拒绝（我已验证全通）。</li>
+    <li><strong>挑战 1</strong>：在 <code>schema.prisma</code> 给 Todo 加一个 <code>priority String @default("normal")</code> 字段 → <code>npx prisma migrate dev --name add_priority</code> → 改 index.ts 使用它——体验"改 schema → 迁移 → 类型同步"的循环。</li>
+    <li><strong>挑战 2</strong>：给 Zod schema 加 <code>.email()</code> 校验一个 email 字段，传非法值看校验拒绝——体验 Zod 的规则链。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="Prisma 与 EF Core 的最大差异是？">
+  <h3>Q1 · schema-first</h3>
+  <ul class="options">
+    <li data-correct="true">先定义 schema 再生成模型</li>
+    <li>先写模型类再生成数据库</li>
+    <li>不需要数据库</li>
+    <li>用 XML 文件配置</li>
+  </ul>
+  <div class="explain">Prisma 是 schema-first：独立 schema.prisma 定义模型 → 生成类型安全客户端 + 迁移。EF Core 是 code-first：写实体类 → EF 推断数据库。方向相反。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="z.infer&lt;typeof Schema&gt; 的作用是？">
+  <h3>Q2 · infer 实战</h3>
+  <ul class="options">
+    <li data-correct="true">从 schema 推导 TS 类型</li>
+    <li>运行时校验数据</li>
+    <li>生成数据库表</li>
+    <li>序列化 JSON</li>
+  </ul>
+  <div class="explain">z.infer 用第 11 课的 infer 从 Zod schema 推导出编译期类型——schema 是唯一真相，类型自动跟随（改 schema 类型跟着变）。运行时校验是 parse 的事。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Prisma 查询链类型安全体现在哪？">
+  <h3>Q3 · 类型安全</h3>
+  <ul class="options">
+    <li data-correct="true">字段名和条件编译期检查</li>
+    <li>运行时自动优化性能</li>
+    <li>数据库自动建表</li>
+    <li>不需要定义任何类型</li>
+  </ul>
+  <div class="explain">prisma.todo.findMany 的 where/orderBy 字段都是生成的类型——拼错字段名或类型不匹配编译期报错（≈ LINQ 的强类型查询）。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="Zod 的 parse 在什么时候工作？">
+  <h3>Q4 · parse 时机</h3>
+  <ul class="options">
+    <li data-correct="true">运行时校验输入</li>
+    <li>编译期检查类型</li>
+    <li>数据库迁移时</li>
+    <li>打包构建时</li>
+  </ul>
+  <div class="explain">parse 是运行时函数：校验实际数据并返回（或抛 ZodError）。它解决"类型系统管不到网络输入"——与 z.infer 的编译期推导互补。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://www.prisma.io/docs">Prisma 官方文档</a> — schema 语法、迁移、查询 API 权威参考。</li>
+  <li><a href="https://zod.dev/">Zod 官方文档</a> — 全部校验规则（字符串/数字/数组/联合…）。</li>
+  <li><a href="https://www.prisma.io/docs/orm/overview/databases">Prisma 数据库支持</a> — SQLite → Postgres 的切换说明。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>数据层完成。最后一课：<strong>tRPC 端到端类型安全</strong>——最"TS 特色"的概念：没有 REST 序列化边界，前后端共享类型后，调后端函数像调本地函数。做完这课，你的差异化知识栈就完整了。</p>
+
+<p class="lesson-nav">
+  <a href="0017-nestjs.html"><span class="lbl">上一课</span>NestJS 后端框架</a>
+  <span class="next"><a href="0019-trpc.html"><span class="lbl">下一课</span>tRPC 端到端类型安全</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>schema-first 和"类型合一"是 C# 里没有的心智——任何疑问，随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0018 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

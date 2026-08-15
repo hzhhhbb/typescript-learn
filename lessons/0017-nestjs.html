@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 17 课：NestJS 后端框架</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-header">
+  <div class="lesson-meta">Lesson 0017 · 差异化 · 后端框架</div>
+  <h1>NestJS：ASP.NET 的 TypeScript 版</h1>
+  <p class="lesson-summary">你是 C# 开发者——NestJS 会给你"回家"的感觉：模块、控制器、服务、依赖注入、装饰器，全是 ASP.NET 的心智模型。差异化的部分：装饰器如何驱动 DI、管道校验、以及一个用 tsx 跑会踩的大坑。</p>
+  <span class="time-box">⏱ 15-20 分钟</span>
+</div>
+
+<h2>NestJS 是什么：C# 架构的 TS 移植</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  <strong>NestJS</strong>：Node 生态里最"企业级"的框架——它把 ASP.NET/Spring 的架构（模块化、依赖注入、装饰器/属性、管道、守卫、拦截器）搬到了 TypeScript 上。Express/Fastify 是自由派（自己搭结构），NestJS 是"框架派"（结构内置）。
+</div>
+
+<table class="compare">
+  <tr><th>NestJS</th><th>ASP.NET Core（你的已知）</th></tr>
+  <tr><td><code>@Module()</code></td><td>Program.cs 的服务注册 + 分区</td></tr>
+  <tr><td><code>@Controller("todos")</code></td><td><code>[ApiController]</code> + 路由前缀</td></tr>
+  <tr><td><code>@Injectable()</code> 服务</td><td>DI 注册的服务类</td></tr>
+  <tr><td><code>constructor(private s: S)</code></td><td>构造函数注入</td></tr>
+  <tr><td><code>@Get() / @Post() / @Param() / @Body()</code></td><td><code>[HttpGet] / [HttpPost] / [FromRoute] / [FromBody]</code></td></tr>
+  <tr><td>Guard / Interceptor / Pipe</td><td>AuthorizationFilter / ActionFilter / ModelState</td></tr>
+</table>
+
+<h2>四个核心文件（真实代码，已验证）</h2>
+
+<pre><code><span class="c">// 1. 服务：业务逻辑（≈ DI 注册的服务类）</span>
+<span class="k">@Injectable</span>()  <span class="c">// 装饰器声明"可注入"</span>
+<span class="k">export class</span> <span class="t">TodosService</span> {
+  <span class="k">private</span> todos: <span class="t">Todo</span>[] = [];
+  create(title: <span class="t">string</span>): <span class="t">Todo</span> { ... }
+}
+
+<span class="c">// 2. 控制器：路由 + 参数绑定（≈ [ApiController]）</span>
+<span class="k">@Controller</span>(<span class="s">"todos"</span>)
+<span class="k">export class</span> <span class="t">TodosController</span> {
+  <span class="k">constructor</span>(<span class="k">private readonly</span> service: <span class="t">TodosService</span>) {}  <span class="c">// 构造注入</span>
+
+  <span class="k">@Get</span>()  <span class="c">// GET /todos</span>
+  list() { <span class="k">return</span> <span class="k">this</span>.service.list(); }
+
+  <span class="k">@Post</span>()  <span class="c">// POST /todos（@Body() ≈ [FromBody]）</span>
+  create(<span class="k">@Body</span>() dto: <span class="t">CreateTodoDto</span>) {
+    <span class="k">return</span> <span class="k">this</span>.service.create(dto.title);
+  }
+}
+
+<span class="c">// 3. 模块：把控制器和服务组装（≈ Program.cs 注册区）</span>
+<span class="k">@Module</span>({
+  controllers: [<span class="t">TodosController</span>],
+  providers: [<span class="t">TodosService</span>],  <span class="c">// ≈ services.AddScoped&lt;TodosService&gt;()</span>
+})
+<span class="k">export class</span> <span class="t">AppModule</span> {}
+
+<span class="c">// 4. 入口（≈ Program.cs）</span>
+<span class="k">const</span> app = <span class="k">await</span> <span class="t">NestFactory</span>.create(<span class="t">AppModule</span>);
+app.enableCors();
+<span class="k">await</span> app.listen(<span class="n">3002</span>);</code></pre>
+
+<h2>差异点 1：装饰器驱动的 DI（vs C# 的容器配置）</h2>
+
+<div class="new">
+  <span class="tag">全新概念</span>
+  C# 的 DI 是<strong>在容器里配置</strong>（<code>services.AddScoped&lt;TodosService&gt;()</code>）；NestJS 的 DI 是<strong>声明式的</strong>——类上用 <code>@Injectable()</code> 标记、构造参数写类型、容器自动解析。你<strong>不写</strong> <code>AddScoped</code>，只要 <code>@Module({ providers: [...] })</code> 注册即可。
+</div>
+
+<h2>差异点 2：⚠️ tsx/esbuild 跑 NestJS 会注入失败（实测坑）</h2>
+
+<div class="warn">
+  <strong>设计时类型元数据（design:paramtypes）</strong>：NestJS 的构造注入靠 TypeScript 编译时发出的参数类型元数据。<strong>tsc 会发出，但 esbuild（tsx 底层）不发出</strong>——所以用 <code>tsx src/main.ts</code> 跑 NestJS，所有注入的服务都是 undefined，API 返回 500。实测错误：
+  <code>TypeError: Cannot read properties of undefined (reading 'list')</code>
+</div>
+
+<pre class="term"><code><span class="c">// ❌ 这样跑注入会失败（esbuild 不发出元数据）</span>
+<span class="dollar">$</span> tsx src/main.ts
+TypeError: Cannot read properties of undefined (reading 'list')
+
+<span class="c">// ✅ 这样跑正常（tsc 编译发出元数据）</span>
+<span class="dollar">$</span> tsc && node dist/main.js
+<span class="out">[Nest] Mapped {/todos, GET} route ... successfully started</span></code></pre>
+
+<p>这也是 NestJS 官方用 tsc（或 SWC+配置）而不是裸 esbuild 的原因。真实项目用 <code>@nestjs/cli</code> 脚手架（内部已配好）。</p>
+
+<h2>差异点 3：管道校验（Pipes）</h2>
+
+<p>NestJS 的校验哲学：DTO 用 <strong>class</strong>（不是 type）——因为管道需要<strong>运行时</strong>的类定义来做校验和元数据（呼应第 10 课"类型管不到网络输入"）：</p>
+
+<pre><code><span class="k">class</span> <span class="t">CreateTodoDto</span> {
+  title!: <span class="t">string</span>;  <span class="c">// class 而非 interface——NestJS 需要运行时元数据</span>
+}
+
+<span class="c">// main.ts 全局启用校验管道（≈ C# 的 ModelState 自动校验）</span>
+app.useGlobalPipes(<span class="k">new</span> <span class="t">ValidationPipe</span>());
+<span class="c">// 之后 POST /todos 缺 title 字段 → 自动 400 + 错误详情</span></code></pre>
+
+<h2>动手练习</h2>
+
+<div class="exercise">
+  <div class="ex-title">在 code/nest-demo/ 里验证（5 分钟）</div>
+  <ol>
+    <li><code>npm start</code> → 用 curl 测 CRUD（我已验证：创建、列表、切换全通）。</li>
+    <li><strong>挑战 1（强烈推荐）</strong>：改成 <code>tsx src/main.ts</code> 跑——亲眼看到注入失败的 500 错误，理解 design:paramtypes 机制，再改回 <code>npm start</code>。</li>
+    <li><strong>挑战 2</strong>：加一个 <code>@Get("stats")</code> 端点返回 <code>{ total: number; done: number }</code>——体验控制器加路由。</li>
+  </ol>
+</div>
+
+<h2>检查你的理解</h2>
+
+<div class="quiz" data-q="NestJS 的 @Injectable() 服务对应 C# 的？">
+  <h3>Q1 · 服务与 DI</h3>
+  <ul class="options">
+    <li data-correct="true">DI 容器注册的服务</li>
+    <li>控制器类</li>
+    <li>中间件</li>
+    <li>数据模型</li>
+  </ul>
+  <div class="explain">@Injectable() 标记可注入服务，在 @Module 的 providers 注册，通过构造函数注入使用——对应 C# 的 AddScoped/AddTransient 服务。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="NestJS 构造注入依赖什么机制？">
+  <h3>Q2 · 注入机制</h3>
+  <ul class="options">
+    <li data-correct="true">编译期类型元数据</li>
+    <li>运行时字符串配置</li>
+    <li>全局单例变量</li>
+    <li>反射遍历程序集</li>
+  </ul>
+  <div class="explain">NestJS 读 TypeScript 编译时发出的 design:paramtypes 元数据来确定构造参数类型。tsc 会发，esbuild 不发——这就是 tsx 跑 NestJS 注入失败的原因。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="用 tsx（esbuild）跑 NestJS 会怎样？">
+  <h3>Q3 · tsx 的坑</h3>
+  <ul class="options">
+    <li data-correct="true">注入失败，API 返回 500</li>
+    <li>无法识别装饰器语法</li>
+    <li>内存不足崩溃</li>
+    <li>端口冲突无法启动</li>
+  </ul>
+  <div class="explain">esbuild 不发出设计时类型元数据 → 所有构造注入的服务是 undefined → 500。用 tsc 编译（或 @nestjs/cli）跑是正解。</div>
+  <div class="feedback"></div>
+</div>
+
+<div class="quiz" data-q="DTO 为什么要用 class 而不是 interface？">
+  <h3>Q4 · DTO 选择</h3>
+  <ul class="options">
+    <li data-correct="true">管道需要运行时元数据</li>
+    <li>class 语法更简洁</li>
+    <li>interface 无法描述字段</li>
+    <li>编译器强制要求</li>
+  </ul>
+  <div class="explain">interface 编译后消失（第 1 课类型擦除）；ValidationPipe 需要运行时能"看到"类来做校验。所以 NestJS 的 DTO 用 class + 装饰器描述规则。</div>
+  <div class="feedback"></div>
+</div>
+
+<h2>本节主要资源</h2>
+
+<ul>
+  <li><a href="https://docs.nestjs.com/">NestJS 官方文档</a> — 完整指南（控制器/提供者/模块/管道/守卫）。</li>
+  <li><a href="https://docs.nestjs.com/fundamentals/custom-providers">NestJS: 依赖注入原理</a> — DI 机制详解。</li>
+  <li><a href="https://www.typescriptlang.org/tsconfig#emitDecoratorMetadata">tsconfig: emitDecoratorMetadata</a> — 设计时元数据的开关说明。</li>
+</ul>
+
+<h2>下一步</h2>
+
+<p>NestJS 给了你后端结构的"家"。下一课：<strong>数据层 Prisma + Zod</strong>——Prisma 的 schema-first 类型安全 ORM（vs EF 的 code-first），Zod 的"一个 schema 同时产出校验和类型"。做完数据层，你的后端栈就完整了。</p>
+
+<p class="lesson-nav">
+  <a href="0016-node-concurrency.html"><span class="lbl">上一课</span>Node 并发模型</a>
+  <span class="next"><a href="0018-prisma-zod.html"><span class="lbl">下一课</span>Prisma + Zod 数据层</a></span>
+</p>
+
+<hr>
+
+<p><strong>有不清楚的地方？直接问你的老师。</strong>NestJS 对 C# 开发者是舒适区——差异点就那几个，任何疑问随时问我。</p>
+
+</main>
+<footer>
+  <p>TypeScript 课程 · Lesson 0017 · <a href="../reference/glossary.html">术语表</a> · <a href="../reference/ecosystem-map.html">生态地图</a></p>
+</footer>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

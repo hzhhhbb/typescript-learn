@@ -1,0 +1,19 @@
+{
+  "name": "realtime-board",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:server": "npm run dev -w @board/server",
+    "dev:web": "npm run dev -w @board/web",
+    "build": "npm run build -w @board/web"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

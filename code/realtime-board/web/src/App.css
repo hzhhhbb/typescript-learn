@@ -1,0 +1,17 @@
+* { box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f5f6f8; margin: 0; }
+.app { max-width: 42rem; margin: 2rem auto; padding: 0 1rem; }
+.app h1 { font-size: 1.3rem; }
+.dot { color: #999; }
+.dot.ok { color: #2e7d4f; }
+.compose { display: flex; gap: 0.4rem; margin: 1rem 0; flex-wrap: wrap; }
+.compose input { padding: 0.45rem 0.6rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+.compose .author { width: 6.5rem; }
+.compose .text { flex: 1; min-width: 12rem; }
+.compose button { padding: 0.45rem 0.9rem; border: none; border-radius: 6px; background: #3178c6; color: #fff; cursor: pointer; font-size: 0.9rem; }
+.compose button:hover { background: #255a96; }
+.feed { list-style: none; padding: 0; }
+.feed li { display: flex; gap: 0.7rem; background: #fff; border: 1px solid #e3e5e8; border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.4rem 0; align-items: baseline; }
+.time { color: #999; font-family: ui-monospace, monospace; font-size: 0.8rem; }
+.body { font-size: 0.95rem; }
+.empty { color: #999; text-align: center; margin-top: 3rem; }

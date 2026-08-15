@@ -1,0 +1,16 @@
+// schema.prisma —— schema-first：先定义数据模型（vs EF 的 code-first）
+datasource db {
+  provider = "sqlite"        // 开发用 SQLite，零配置
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Todo {
+  id    Int     @id @default(autoincrement())
+  title String
+  done  Boolean @default(false)
+  createdAt DateTime @default(now())
+}
