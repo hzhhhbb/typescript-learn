@@ -1,12 +1,16 @@
 # TypeScript 全栈课程（C#/Java 迁移）
 
-> 为精通 C# / Java 的后端开发者设计的 15 课完整学习路线：从类型系统到全栈生态，每课 15-20 分钟，概念对照 C#/Java，含可运行练习与测验。
+> 为精通 C# / Java 的后端开发者设计的 19 课完整学习路线：从类型系统到全栈生态，每课 15-20 分钟，概念对照 C#/Java，含可运行练习与测验。
 
 📖 **在线阅读**：https://www.huangziheng.com/typescript-learn/ （GitHub Pages 托管，随时看）
 
 ---
 
 ## 课程概览
+
+![TypeScript 全栈学习路线（19 课）](assets/course-map.png)
+
+> 完整交互版：[assets/course-map.html](assets/course-map.html)
 
 ### 阶段一：语言核心（0001-0011）
 
@@ -33,14 +37,23 @@
 | 0014 | Vite 构建工具 | 构建层（打包） |
 | 0015 | React 全景 | 框架层（界面） |
 
+### 阶段三：差异化进阶（0016-0019）
+
+| 课 | 主题 | 核心收获 |
+|---|---|---|
+| 0016 | Node 并发模型 | worker_threads、cluster、Streams 与背压 |
+| 0017 | NestJS 后端框架 | ASP.NET 的 TS 版：装饰器 DI、管道校验 |
+| 0018 | Prisma + Zod 数据层 | schema-first 类型安全 ORM + 校验与类型合一 |
+| 0019 | tRPC 端到端类型安全 | 类型即契约：调后端函数像调本地函数 |
+
 ## 目录结构
 
 ```
 .
 ├── index.html              # 课程首页（导航）
-├── lessons/                # 15 课（HTML，可打印）
+├── lessons/                # 19 课（HTML，可打印）
 │   ├── 0001-hello-typescript.html
-│   └── ... 0015-react.html
+│   └── ... 0019-trpc.html
 ├── reference/              # 参考文档
 │   ├── glossary.html       # 术语表（C#/Java 对照）
 │   └── ecosystem-map.html  # 生态地图（四层全景）
@@ -52,7 +65,7 @@
 │   ├── todo-api/           # 第 10 课：Todo API 后端
 │   ├── todo-web/           # 第 15 课：React 前端（全栈闭环）
 │   └── demo-vite/          # 第 14 课：Vite 示例
-├── learning-records/       # 学习记录（0001-0015）
+├── learning-records/       # 学习记录（0001-0019）
 ├── MISSION.md              # 教学使命
 ├── RESOURCES.md            # 学习资源清单
 └── NOTES.md                # 教学笔记

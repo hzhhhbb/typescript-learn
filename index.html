@@ -32,6 +32,20 @@
   .stage.eco .num { color: var(--ok); }
   .refs { margin: 1.4rem 0; }
   .refs a { display: inline-block; margin: 0.3rem 0.6rem 0.3rem 0; }
+  .course-map { margin: 1.6rem 0; }
+  .course-map iframe {
+    width: 100%;
+    aspect-ratio: 1176 / 488;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: #fdfdfd;
+    display: block;
+  }
+  .course-map figcaption {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin-top: 0.4rem;
+  }
 </style>
 </head>
 <body>
@@ -40,8 +54,13 @@
 <div class="lesson-header">
   <div class="lesson-meta">TypeScript 全栈课程</div>
   <h1>从 C#/Java 到 TypeScript 全栈</h1>
-  <p class="lesson-summary">15 课完整学习路线：语言核心（类型系统 → 工程实践 → 类型编程）→ 生态四层（npm → Node → Vite → React）。每课 15-20 分钟，概念对照 C#/Java，含可运行练习与测验。</p>
+  <p class="lesson-summary">19 课完整学习路线：语言核心（类型系统 → 工程实践 → 类型编程）→ 生态四层（npm → Node → Vite → React）→ 差异化进阶（Node 并发 → NestJS → Prisma+Zod → tRPC）。每课 15-20 分钟，概念对照 C#/Java，含可运行练习与测验。</p>
 </div>
+
+<figure class="course-map">
+  <iframe src="assets/course-map.html" title="TypeScript 全栈学习路线（19 课）" loading="lazy"></iframe>
+  <figcaption>学习路线：语言核心（0001–0011）→ 生态四层（0012–0015）→ 差异化进阶（0016–0019）· <a href="assets/course-map.html">打开交互版 ↗</a></figcaption>
+</figure>
 
 <p><a href="MISSION.md">📌 教学使命</a> · <a href="RESOURCES.md">📚 学习资源</a> · <a href="NOTES.md">📝 教学笔记</a></p>
 
@@ -94,7 +113,7 @@
 
 </main>
 <footer>
-  <p>TypeScript 全栈课程 · 15 课 · <a href="MISSION.md">教学使命</a></p>
+  <p>TypeScript 全栈课程 · 19 课 · <a href="MISSION.md">教学使命</a></p>
 </footer>
 </body>
 </html>
